@@ -11,7 +11,7 @@ import type { Session, SessionRequest } from '../stores/useSessionsStore';
 // =============================================================================
 
 // TODO: Move to env variable for production
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://app.getodyssey.xyz';
 
 // In-memory auth token storage
 // TODO: Consider using expo-secure-store for production
@@ -204,11 +204,12 @@ async function request<T>(
 
 /**
  * Generate a new pairing code for agents to connect
+ * Requires walletPubkey and telegramId (from linked wallet)
  */
-export async function generatePairingCode(): Promise<ApiResponse<PairingCodeResponse>> {
-  return request<PairingCodeResponse>('/api/pairing/code', {
+export async function generatePairingCode(walletPubkey: string, telegramId: number): Promise<ApiResponse<PairingCodeResponse>> {
+  return request<PairingCodeResponse>('/api/pairing/generate-code', {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ walletPubkey, telegramId }),
   });
 }
 

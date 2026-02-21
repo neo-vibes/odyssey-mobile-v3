@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface WalletState {
   address: string | null;
+  telegramId: number | null;  // For API calls that require it
   balanceSol: number;
   balanceUsd: number;
   isLinked: boolean;
@@ -10,6 +11,7 @@ export interface WalletState {
 
 interface WalletActions {
   setAddress: (address: string | null) => void;
+  setTelegramId: (telegramId: number | null) => void;
   setBalance: (balanceSol: number, balanceUsd: number) => void;
   setIsLinked: (isLinked: boolean) => void;
   reset: () => void;
@@ -17,6 +19,7 @@ interface WalletActions {
 
 const initialState: WalletState = {
   address: null,
+  telegramId: null,
   balanceSol: 0,
   balanceUsd: 0,
   isLinked: false,
@@ -27,6 +30,8 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   ...initialState,
 
   setAddress: (address) => set({ address, isLinked: address !== null }),
+
+  setTelegramId: (telegramId) => set({ telegramId }),
 
   setBalance: (balanceSol, balanceUsd) =>
     set({

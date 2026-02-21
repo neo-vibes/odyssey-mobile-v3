@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import type { PairAgentScreenProps } from "../../navigation/types";
 import { generatePairingCode } from "../../services/api";
+import { useWalletStore } from "../../stores/useWalletStore";
 
 interface PairingCodeState {
   code: string;
@@ -10,6 +11,7 @@ interface PairingCodeState {
 }
 
 export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
+  const { address, telegramId } = useWalletStore();
   const [pairingCode, setPairingCode] = useState<PairingCodeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,10 +21,16 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
 
   // Fetch pairing code on mount
   const fetchPairingCode = useCallback(async () => {
+    if (!address || !telegramId) {
+      setError("Wallet not linked. Please link your Telegram wallet first.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    const response = await generatePairingCode();
+    const response = await generatePairingCode(address, telegramId);
 
     if (response.ok && response.data) {
       const expiresAt = new Date(response.data.expiresAt);
@@ -38,7 +46,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
     }
 
     setLoading(false);
-  }, []);
+  }, [address, telegramId]);
 
   useEffect(() => {
     fetchPairingCode();

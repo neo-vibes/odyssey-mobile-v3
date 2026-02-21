@@ -24,6 +24,7 @@ interface OnboardingScreenProps {
 
 const TELEGRAM_BOT_LINK = "https://t.me/odyssey_session_bot";
 const DEV_WALLET_ADDRESS = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+const DEV_TELEGRAM_ID = 6213870545;  // Yann's telegram ID for dev testing
 const DEV_TAP_COUNT = 5;
 
 // =============================================================================
@@ -33,7 +34,7 @@ const DEV_TAP_COUNT = 5;
 export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   const [state, setState] = useState<OnboardingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { setAddress, setIsLinked } = useWalletStore();
+  const { setAddress, setTelegramId, setIsLinked } = useWalletStore();
   
   // Dev mode: tap logo 5x to bypass
   const tapCountRef = useRef(0);
@@ -50,6 +51,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
       // Dev mode activated - use mock wallet
       console.log("🔧 Dev mode: Using mock wallet");
       setAddress(DEV_WALLET_ADDRESS);
+      setTelegramId(DEV_TELEGRAM_ID);
       setIsLinked(true);
       onLinkComplete?.();
       tapCountRef.current = 0;
