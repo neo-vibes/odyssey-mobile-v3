@@ -208,6 +208,7 @@ async function request<T>(
 export async function generatePairingCode(): Promise<ApiResponse<PairingCodeResponse>> {
   return request<PairingCodeResponse>('/api/pairing/code', {
     method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 
