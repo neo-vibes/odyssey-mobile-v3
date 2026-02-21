@@ -1,0 +1,140 @@
+{
+  "spec": "wallet-derivation-v2",
+  "created": "2026-02-21",
+  "tasks": [
+    {
+      "id": "derivation-utils",
+      "name": "Derivation utility functions",
+      "description": "Create shared utility functions for deterministic wallet derivation",
+      "files": ["packages/api/src/derivation.ts"],
+      "acceptance": [
+        "deriveWalletSeed(telegramId, counter) returns sha256 hash",
+        "deriveWalletPDA(telegramId, counter) returns [PublicKey, bump]",
+        "Input format: `${telegramId}:${counter}` (colon separator)",
+        "Export functions for use in API and pages"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "scan-wallets",
+      "name": "Scan wallets for telegramId",
+      "description": "Function to scan all wallet counters and return existing wallets",
+      "files": ["packages/api/src/derivation.ts"],
+      "acceptance": [
+        "scanWallets(telegramId) returns array of {counter, pubkey, balance}",
+        "Scans counter=0,1,2... until first empty slot",
+        "Checks account exists AND discriminator=1 (valid wallet)",
+        "Fetches SOL balance for each wallet",
+        "Returns empty array if no wallets"
+      ],
+      "dependencies": ["derivation-utils"]
+    },
+    {
+      "id": "next-counter",
+      "name": "Find next available counter",
+      "description": "Function to find first empty counter slot for new wallet",
+      "files": ["packages/api/src/derivation.ts"],
+      "acceptance": [
+        "getNextCounter(telegramId) returns first empty counter",
+        "Reuses logic from scanWallets (stops at first empty)",
+        "Returns 0 if no wallets exist"
+      ],
+      "dependencies": ["derivation-utils"]
+    },
+    {
+      "id": "api-scan-endpoint",
+      "name": "API endpoint to scan wallets",
+      "description": "Add endpoint for scanning user's wallets",
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "GET /api/v2/wallets/:telegramId returns {wallets: [{counter, pubkey, balance}]}",
+        "Uses scanWallets() from derivation.ts",
+        "Returns empty array if no wallets"
+      ],
+      "dependencies": ["scan-wallets"]
+    },
+    {
+      "id": "pages-create-v2",
+      "name": "Update wallet creation in pages.ts",
+      "description": "Change wallet creation to use deterministic derivation",
+      "files": ["packages/api/src/pages.ts"],
+      "acceptance": [
+        "createNewWallet() uses deriveWalletSeed(telegramId, counter)",
+        "Calls getNextCounter() to find slot",
+        "Removes random userSeed generation",
+        "Still creates passkey with userSeed as user.id (for backwards compat)",
+        "Build passes with no TypeScript errors"
+      ],
+      "dependencies": ["next-counter"]
+    },
+    {
+      "id": "pages-wallet-picker",
+      "name": "Wallet picker UI in webapp",
+      "description": "Show wallet picker when multiple wallets exist",
+      "files": ["packages/api/src/pages.ts"],
+      "acceptance": [
+        "On load, scan wallets for telegramId",
+        "If 0 wallets: show create button",
+        "If 1 wallet: auto-select, proceed to wallet view",
+        "If 2+ wallets: show picker with pubkey + balance",
+        "Selected wallet stored in localStorage",
+        "Add Wallet button to create additional"
+      ],
+      "dependencies": ["pages-create-v2", "api-scan-endpoint"]
+    },
+    {
+      "id": "bot-scan-command",
+      "name": "Bot /wallet with multi-wallet support",
+      "description": "Update /wallet command to handle multiple wallets",
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "/wallet scans all wallets via API",
+        "If 0: prompt to create",
+        "If 1: show wallet info",
+        "If 2+: show inline buttons to pick wallet",
+        "Store active wallet in memory/file per telegramId",
+        "Subsequent commands use active wallet"
+      ],
+      "dependencies": ["api-scan-endpoint"]
+    },
+    {
+      "id": "bot-create-command",
+      "name": "Bot /create for new wallet",
+      "description": "Update /create to use v2 derivation",
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "/create opens webapp with counter param",
+        "Webapp creates at next available counter",
+        "New wallet becomes active wallet",
+        "Works even if user has existing wallets"
+      ],
+      "dependencies": ["bot-scan-command", "pages-create-v2"]
+    },
+    {
+      "id": "bot-recover-command",
+      "name": "Bot /recover command",
+      "description": "Add command to scan and recover wallets",
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "/recover scans all counters for telegramId",
+        "Shows list of found wallets with balances",
+        "Inline buttons to select wallet",
+        "Selected wallet becomes active"
+      ],
+      "dependencies": ["bot-scan-command"]
+    },
+    {
+      "id": "backward-compat",
+      "name": "Backward compatibility check",
+      "description": "Ensure old random-seed wallets still work",
+      "files": ["packages/api/src/pages.ts"],
+      "acceptance": [
+        "Old wallets with userHandle can still sign",
+        "Session approval works for old wallets",
+        "No breaking changes to existing flows",
+        "Document: old wallets cannot be 'found' by scan (expected)"
+      ],
+      "dependencies": ["pages-create-v2"]
+    }
+  ]
+}
