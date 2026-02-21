@@ -5,6 +5,7 @@ import {
   AgentsScreen,
   PairAgentScreen,
   AgentDetailScreen,
+  SessionRequestScreen,
   SessionsListScreen,
   SessionDetailScreen,
   TransactionDetailScreen,
@@ -36,6 +37,11 @@ export function AgentsStack() {
         name="AgentDetailScreen"
         component={AgentDetailScreen}
         options={{ title: "Agent Detail" }}
+      />
+      <Stack.Screen
+        name="SessionRequestScreen"
+        component={SessionRequestScreen}
+        options={{ title: "Session Request" }}
       />
       <Stack.Screen
         name="SessionsListScreen"

@@ -23,6 +23,13 @@ export type AgentsStackParamList = {
   AgentsScreen: undefined;
   PairAgentScreen: undefined;
   AgentDetailScreen: { agentId: string };
+  SessionRequestScreen: {
+    requestId: string;
+    agentName: string;
+    durationSeconds: number;
+    limitSol: number;
+    network?: "mainnet" | "devnet";
+  };
   SessionsListScreen: { agentId: string };
   SessionDetailScreen: { sessionId: string };
   TransactionDetailScreen: { transactionId: string };
@@ -62,6 +69,11 @@ export type PairAgentScreenProps = CompositeScreenProps<
 
 export type AgentDetailScreenProps = CompositeScreenProps<
   NativeStackScreenProps<AgentsStackParamList, "AgentDetailScreen">,
+  BottomTabScreenProps<RootTabParamList>
+>;
+
+export type SessionRequestScreenProps = CompositeScreenProps<
+  NativeStackScreenProps<AgentsStackParamList, "SessionRequestScreen">,
   BottomTabScreenProps<RootTabParamList>
 >;
 
