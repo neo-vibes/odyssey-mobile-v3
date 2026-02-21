@@ -1,0 +1,311 @@
+{
+  "project": "odyssey-mobile-v3",
+  "description": "React Native mobile app for Odyssey AI agent spending sessions",
+  "created": "2026-02-21",
+  "tasks": [
+    {
+      "id": "setup-expo",
+      "name": "Create Expo Project",
+      "description": "Initialize Expo project with TypeScript template, configure for iOS/Android",
+      "feature": "setup",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": [],
+      "acceptance": [
+        "npx expo start runs without error",
+        "App.tsx renders placeholder content",
+        "TypeScript configured with strict mode"
+      ]
+    },
+    {
+      "id": "setup-nativewind",
+      "name": "Configure NativeWind + gluestack",
+      "description": "Set up NativeWind v5 for Tailwind styling, install gluestack-ui components",
+      "feature": "setup",
+      "complexity": "medium",
+      "iterations": 3,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-expo"],
+      "acceptance": [
+        "NativeWind classes work (e.g., className='bg-black text-white')",
+        "gluestack Button component renders",
+        "Dark mode colors from specs/best-practices/ui.md applied"
+      ]
+    },
+    {
+      "id": "setup-navigation",
+      "name": "Set up Navigation",
+      "description": "Configure React Navigation with 2 bottom tabs (Agents, Wallet) per specs/mobile/overview.md",
+      "feature": "setup",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-nativewind"],
+      "acceptance": [
+        "Bottom tab navigator with Agents (default) and Wallet tabs",
+        "Stack navigators for each tab",
+        "Tab icons render correctly",
+        "Navigation types defined"
+      ]
+    },
+    {
+      "id": "setup-stores",
+      "name": "Create Zustand Stores",
+      "description": "Set up Zustand stores for wallet state, agents, sessions based on data models in specs",
+      "feature": "setup",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-expo"],
+      "acceptance": [
+        "useWalletStore with address, balance, linked status",
+        "useAgentsStore with agents list, pending requests",
+        "useSessionsStore with sessions, pending session requests",
+        "Types match specs/mobile/*.md data models"
+      ]
+    },
+    {
+      "id": "setup-api",
+      "name": "Create API Client",
+      "description": "API client service for backend communication per AGENTS.md endpoints",
+      "feature": "setup",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-stores"],
+      "acceptance": [
+        "API client with base URL config",
+        "Functions for: pairing, sessions, wallet endpoints",
+        "Error handling with typed responses",
+        "Auth token handling"
+      ]
+    },
+    {
+      "id": "screen-onboarding",
+      "name": "Onboarding Screen",
+      "description": "First launch screen with 'Link Telegram Wallet' button per specs/mobile/onboarding.md",
+      "feature": "onboarding",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-navigation", "setup-stores"],
+      "acceptance": [
+        "Renders logo, tagline, Link button",
+        "Deep link to Telegram bot works",
+        "Loading and error states implemented",
+        "Matches wireframe in spec"
+      ]
+    },
+    {
+      "id": "screen-agents-tab",
+      "name": "Agents Tab Screen",
+      "description": "Main agents screen with pending requests and paired agents list per specs/mobile/agents.md",
+      "feature": "agents",
+      "complexity": "medium",
+      "iterations": 3,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-navigation", "setup-api"],
+      "acceptance": [
+        "Pending pairing request cards render",
+        "Pending session request cards render",
+        "Paired agents list with active session indicator",
+        "Empty state when no agents",
+        "'Pair New Agent' button navigates correctly"
+      ]
+    },
+    {
+      "id": "screen-pair-agent",
+      "name": "Pair Agent Screen",
+      "description": "Generate and display pairing code per specs/mobile/agents.md",
+      "feature": "agents",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-agents-tab"],
+      "acceptance": [
+        "Generates code via API",
+        "Displays code prominently",
+        "Copy code button with feedback",
+        "Copy instructions button",
+        "Expiry countdown timer"
+      ]
+    },
+    {
+      "id": "screen-agent-detail",
+      "name": "Agent Detail Screen",
+      "description": "Agent info and sessions link per specs/mobile/agents.md",
+      "feature": "agents",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-agents-tab"],
+      "acceptance": [
+        "Shows agent name, paired date",
+        "Unpair button with confirmation",
+        "Sessions section with counts",
+        "Navigate to sessions list"
+      ]
+    },
+    {
+      "id": "component-session-request-card",
+      "name": "Session Request Card Component",
+      "description": "Reusable card for session requests per specs/mobile/sessions.md",
+      "feature": "sessions",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-nativewind"],
+      "acceptance": [
+        "Shows agent name, duration, limit",
+        "Approve/Deny buttons",
+        "Details button navigates to full screen",
+        "Matches wireframe"
+      ]
+    },
+    {
+      "id": "screen-session-request",
+      "name": "Session Request Full Screen",
+      "description": "Full session approval screen with passkey trigger per specs/mobile/sessions.md",
+      "feature": "sessions",
+      "complexity": "high",
+      "iterations": 3,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["component-session-request-card", "setup-api"],
+      "acceptance": [
+        "Shows all session details (duration, limit, network)",
+        "USD equivalent of limit displayed",
+        "Approve triggers passkey flow",
+        "Success navigates back with indicator",
+        "Deny dismisses request"
+      ]
+    },
+    {
+      "id": "screen-sessions-list",
+      "name": "Sessions List Screen",
+      "description": "Active and past sessions for an agent per specs/mobile/sessions.md",
+      "feature": "sessions",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-agent-detail"],
+      "acceptance": [
+        "Active session card at top",
+        "Past sessions list with date/duration/spent",
+        "Navigate to session detail on tap"
+      ]
+    },
+    {
+      "id": "screen-session-detail",
+      "name": "Session Detail Screen",
+      "description": "Session info and transactions list per specs/mobile/sessions.md",
+      "feature": "sessions",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-sessions-list"],
+      "acceptance": [
+        "Shows session metadata (date, duration, limit, spent, status)",
+        "Transactions list with icons",
+        "Navigate to transaction detail"
+      ]
+    },
+    {
+      "id": "screen-transaction-detail",
+      "name": "Transaction Detail Screen",
+      "description": "Single transaction info per specs/mobile/sessions.md",
+      "feature": "sessions",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-session-detail"],
+      "acceptance": [
+        "Shows tx type, amount, destination",
+        "Copy address/signature buttons",
+        "View on Explorer link"
+      ]
+    },
+    {
+      "id": "screen-wallet-tab",
+      "name": "Wallet Tab Screen",
+      "description": "Balance display with send/receive buttons per specs/mobile/wallet.md",
+      "feature": "wallet",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["setup-navigation", "setup-api"],
+      "acceptance": [
+        "Balance in SOL (large) and USD (secondary)",
+        "Address with copy button",
+        "Receive and Send buttons",
+        "Auto-refresh balance"
+      ]
+    },
+    {
+      "id": "screen-receive",
+      "name": "Receive Screen",
+      "description": "QR code and address for receiving SOL per specs/mobile/wallet.md",
+      "feature": "wallet",
+      "complexity": "low",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-wallet-tab"],
+      "acceptance": [
+        "QR code renders wallet address",
+        "Full address displayed",
+        "Copy and Share buttons work"
+      ]
+    },
+    {
+      "id": "screen-send",
+      "name": "Send Screen",
+      "description": "Send SOL form with validation per specs/mobile/wallet.md",
+      "feature": "wallet",
+      "complexity": "high",
+      "iterations": 3,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-wallet-tab"],
+      "acceptance": [
+        "Address input with validation",
+        "Amount input with max button",
+        "Network fee estimate displayed",
+        "Send triggers passkey flow",
+        "Success/error feedback"
+      ]
+    },
+    {
+      "id": "polish-quality",
+      "name": "Code Quality Pass",
+      "description": "Fix lint errors, type errors, formatting, cleanup unused code",
+      "feature": "polish",
+      "complexity": "medium",
+      "iterations": 2,
+      "model": "sonnet-4-5",
+      "thinking": "medium",
+      "dependencies": ["screen-send", "screen-transaction-detail"],
+      "acceptance": [
+        "npx tsc --noEmit passes with no errors",
+        "npx eslint . passes",
+        "App runs on iOS simulator without crash",
+        "All screens accessible via navigation"
+      ]
+    }
+  ]
+}
