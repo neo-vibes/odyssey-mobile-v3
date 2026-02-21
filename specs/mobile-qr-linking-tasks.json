@@ -1,0 +1,113 @@
+{
+  "spec": "mobile-qr-linking",
+  "repo": "~/odyssey-mobile-v3",
+  "tasks": [
+    {
+      "id": "1-expo-camera",
+      "name": "Add expo-camera dependency",
+      "description": "Install expo-camera and configure permissions",
+      "files": ["package.json", "app.json"],
+      "commands": ["npx expo install expo-camera"],
+      "done_when": "expo-camera in package.json, camera permission in app.json"
+    },
+    {
+      "id": "2-pairing-service",
+      "name": "Create pairing service",
+      "description": "API client for pairing endpoints",
+      "files": ["src/services/pairing.ts"],
+      "spec_ref": "mobile-qr-linking.md#api-endpoints",
+      "functions": [
+        "parseTokenFromUrl(url: string): string | null",
+        "getPairingDetails(token: string): Promise<PairingDetails>",
+        "registerDevice(params): Promise<{ requestId: string }>",
+        "pollApprovalStatus(requestId: string): Promise<Status>"
+      ],
+      "tests": [
+        "parseTokenFromUrl extracts token from valid URL",
+        "parseTokenFromUrl returns null for invalid URL",
+        "getPairingDetails handles 404 (expired token)"
+      ]
+    },
+    {
+      "id": "3-scan-screen",
+      "name": "Create ScanQRScreen",
+      "description": "Camera screen with QR scanning",
+      "files": ["src/screens/ScanQRScreen.tsx"],
+      "depends_on": ["1-expo-camera"],
+      "spec_ref": "mobile-qr-linking.md#scanqrscreen",
+      "requirements": [
+        "Full screen camera preview",
+        "QR frame overlay",
+        "Instruction text",
+        "Back button",
+        "Vibrate on scan",
+        "Parse and validate URL",
+        "Navigate with token on success"
+      ]
+    },
+    {
+      "id": "4-navigation",
+      "name": "Add ScanQRScreen to navigation",
+      "description": "Register screen in navigation stack",
+      "files": ["src/navigation/index.tsx", "src/navigation/types.ts"],
+      "depends_on": ["3-scan-screen"],
+      "done_when": "Can navigate to ScanQRScreen with navigation.navigate('ScanQR')"
+    },
+    {
+      "id": "5-linking-flow",
+      "name": "Implement linking flow in OnboardingScreen",
+      "description": "Replace TODO with real implementation",
+      "files": ["src/screens/OnboardingScreen.tsx"],
+      "depends_on": ["2-pairing-service", "4-navigation"],
+      "spec_ref": "mobile-qr-linking.md#linking-flow",
+      "requirements": [
+        "Navigate to ScanQR on button press",
+        "Receive token from ScanQR navigation params",
+        "Call getPairingDetails",
+        "Create passkey",
+        "Call registerDevice",
+        "Poll for approval (2s interval, 5min timeout)",
+        "Handle success/denied/timeout",
+        "Save wallet on success",
+        "Navigate to WalletScreen"
+      ]
+    },
+    {
+      "id": "6-wallet-storage",
+      "name": "Implement linked wallet storage",
+      "description": "Persist linked wallet data securely",
+      "files": ["src/services/wallet-storage.ts"],
+      "spec_ref": "mobile-qr-linking.md#state-management",
+      "functions": [
+        "saveLinkedWallet(wallet: LinkedWallet): Promise<void>",
+        "getLinkedWallet(): Promise<LinkedWallet | null>",
+        "clearLinkedWallet(): Promise<void>"
+      ],
+      "notes": "Use expo-secure-store for credential storage"
+    },
+    {
+      "id": "7-error-handling",
+      "name": "Add error handling UI",
+      "description": "User-friendly error messages for all failure cases",
+      "files": ["src/screens/OnboardingScreen.tsx", "src/screens/ScanQRScreen.tsx"],
+      "depends_on": ["5-linking-flow"],
+      "spec_ref": "mobile-qr-linking.md#error-handling",
+      "requirements": [
+        "Camera permission denied prompt",
+        "Invalid QR message",
+        "Token expired message",
+        "Approval denied message",
+        "Timeout message",
+        "Network error message"
+      ]
+    },
+    {
+      "id": "8-tests",
+      "name": "Add unit tests",
+      "description": "Test pairing service functions",
+      "files": ["src/services/__tests__/pairing.test.ts"],
+      "depends_on": ["2-pairing-service"],
+      "spec_ref": "mobile-qr-linking.md#testing-requirements"
+    }
+  ]
+}
