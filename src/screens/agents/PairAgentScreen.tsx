@@ -106,9 +106,9 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   // Loading state
   if (loading) {
     return (
-      <View className="flex-1 bg-gray-900 items-center justify-center p-4">
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text className="text-gray-400 mt-4">Generating pairing code...</Text>
+      <View className="flex-1 bg-background-base items-center justify-center p-4">
+        <ActivityIndicator size="large" color="#FFB84D" />
+        <Text className="text-text-secondary mt-4">Generating pairing code...</Text>
       </View>
     );
   }
@@ -116,13 +116,13 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   // Error state
   if (error) {
     return (
-      <View className="flex-1 bg-gray-900 items-center justify-center p-4">
-        <Text className="text-red-400 text-lg mb-4">⚠️ {error}</Text>
+      <View className="flex-1 bg-background-base items-center justify-center p-4">
+        <Text className="text-error text-lg mb-4">⚠️ {error}</Text>
         <Pressable
           onPress={fetchPairingCode}
-          className="bg-indigo-600 px-6 py-3 rounded-lg active:bg-indigo-700"
+          className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
         >
-          <Text className="text-white font-semibold">Try Again</Text>
+          <Text className="text-background-base font-semibold">Try Again</Text>
         </Pressable>
       </View>
     );
@@ -131,32 +131,32 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   // Expired state
   if (isExpired) {
     return (
-      <View className="flex-1 bg-gray-900 items-center justify-center p-4">
-        <Text className="text-gray-400 text-lg mb-2">⏱️ Code Expired</Text>
-        <Text className="text-gray-500 text-center mb-6">
+      <View className="flex-1 bg-background-base items-center justify-center p-4">
+        <Text className="text-text-secondary text-lg mb-2">⏱️ Code Expired</Text>
+        <Text className="text-text-muted text-center mb-6">
           The pairing code has expired. Generate a new one.
         </Text>
         <Pressable
           onPress={fetchPairingCode}
-          className="bg-indigo-600 px-6 py-3 rounded-lg active:bg-indigo-700"
+          className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
         >
-          <Text className="text-white font-semibold">Generate New Code</Text>
+          <Text className="text-background-base font-semibold">Generate New Code</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-900 p-6">
+    <View className="flex-1 bg-background-base p-6">
       {/* Header text */}
-      <Text className="text-gray-300 text-lg text-center mt-8 mb-8">
+      <Text className="text-text-secondary text-lg text-center mt-8 mb-8">
         Share this code with your agent:
       </Text>
 
       {/* Pairing code display */}
       <View className="items-center mb-6">
-        <View className="bg-gray-800 border-2 border-gray-700 rounded-xl px-8 py-6">
-          <Text className="text-white text-4xl font-mono font-bold tracking-widest">
+        <View className="bg-background-elevated border-2 border-gold/30 rounded-2xl px-8 py-6">
+          <Text className="text-gold text-4xl font-mono font-bold tracking-widest">
             {pairingCode?.code}
           </Text>
         </View>
@@ -166,9 +166,9 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
       <View className="items-center mb-8">
         <Pressable
           onPress={handleCopyCode}
-          className="bg-indigo-600 px-8 py-3 rounded-lg active:bg-indigo-700"
+          className="bg-gold px-8 py-3 rounded-xl active:opacity-80"
         >
-          <Text className="text-white font-semibold text-lg">
+          <Text className="text-background-base font-semibold text-lg">
             {copied === "code" ? "✓ Copied!" : "Copy Code"}
           </Text>
         </Pressable>
@@ -176,18 +176,18 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
 
       {/* Divider */}
       <View className="flex-row items-center mb-8 px-4">
-        <View className="flex-1 h-px bg-gray-700" />
-        <Text className="text-gray-500 mx-4">or</Text>
-        <View className="flex-1 h-px bg-gray-700" />
+        <View className="flex-1 h-px bg-background-elevated" />
+        <Text className="text-text-muted mx-4">or</Text>
+        <View className="flex-1 h-px bg-background-elevated" />
       </View>
 
       {/* Copy Instructions button */}
       <View className="items-center mb-4">
         <Pressable
           onPress={handleCopyInstructions}
-          className="bg-gray-700 px-6 py-3 rounded-lg active:bg-gray-600"
+          className="bg-background-elevated border border-text-secondary/30 px-6 py-3 rounded-xl active:opacity-80"
         >
-          <Text className="text-white font-semibold">
+          <Text className="text-text-primary font-semibold">
             {copied === "instructions"
               ? "✓ Copied!"
               : "Copy Instructions for Agent"}
@@ -197,7 +197,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
 
       {/* Instructions preview */}
       <View className="items-center mb-8">
-        <Text className="text-gray-500 text-center text-sm italic px-4">
+        <Text className="text-text-muted text-center text-sm italic px-4">
           "Pair with my Odyssey wallet using code {pairingCode?.code}"
         </Text>
       </View>
@@ -206,7 +206,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
       <View className="items-center mt-auto mb-8">
         <Text
           className={`text-lg ${
-            timeRemaining < 60000 ? "text-orange-400" : "text-gray-400"
+            timeRemaining < 60000 ? "text-gold" : "text-text-secondary"
           }`}
         >
           Expires in {formatTimeRemaining(timeRemaining)}
@@ -218,7 +218,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
         onPress={() => navigation.goBack()}
         className="items-center py-3"
       >
-        <Text className="text-gray-400 font-medium">Cancel</Text>
+        <Text className="text-text-muted font-medium">Cancel</Text>
       </Pressable>
     </View>
   );

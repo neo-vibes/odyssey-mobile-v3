@@ -17,10 +17,10 @@ export function AgentsStack() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: "#111827" },
-        headerTintColor: "#fff",
-        headerTitleStyle: { fontWeight: "600" },
-        contentStyle: { backgroundColor: "#111827" },
+        headerStyle: { backgroundColor: "#0A0A0A" },
+        headerTintColor: "#FFB84D",
+        headerTitleStyle: { fontWeight: "600", color: "#FFFFFF" },
+        contentStyle: { backgroundColor: "#0A0A0A" },
       }}
     >
       <Stack.Screen
