@@ -1,6 +1,11 @@
 {
   "feature": "mobile-device-pairing",
-  "spec": "specs/mobile/pair-mobile.md",
+  "spec": "~/odyssey-mobile-v3/specs/mobile/pair-mobile.md",
+  "repos": {
+    "api": "~/agentic-wallet/packages/api",
+    "bot": "~/agentic-wallet/packages/bot",
+    "mobile": "~/odyssey-mobile-v3"
+  },
   "tasks": [
     {
       "id": "api-token-endpoints",
@@ -8,7 +13,8 @@
       "description": "Add POST /api/pair-mobile/generate and GET /api/pair-mobile/:token endpoints",
       "status": "pending",
       "dependencies": [],
-      "files": ["packages/api/src/index.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/index.ts"],
       "acceptance": [
         "POST /api/pair-mobile/generate creates token with walletPubkey + telegramId",
         "Token stored in memory with 10min expiry",
@@ -22,7 +28,8 @@
       "description": "Add POST /api/pair-mobile/register to receive mobile passkey",
       "status": "pending",
       "dependencies": ["api-token-endpoints"],
-      "files": ["packages/api/src/index.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/index.ts"],
       "acceptance": [
         "Receives credentialId, publicKey, rpIdHash",
         "Validates token exists and not used",
@@ -37,7 +44,8 @@
       "description": "Add GET /api/devices/:walletPubkey to list paired mobile devices",
       "status": "pending",
       "dependencies": [],
-      "files": ["packages/api/src/index.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/index.ts"],
       "acceptance": [
         "Returns list of paired mobile devices for wallet",
         "Includes device name, pairedAt, status",
@@ -50,7 +58,8 @@
       "description": "Add POST /api/devices/unpair for removing mobile authority",
       "status": "pending",
       "dependencies": ["api-devices-endpoint"],
-      "files": ["packages/api/src/index.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/index.ts"],
       "acceptance": [
         "Receives deviceId and owner signature",
         "Calls remove_authority on Lazorkit",
@@ -64,7 +73,8 @@
       "description": "Create web page for passkey creation flow",
       "status": "pending",
       "dependencies": ["api-token-endpoints"],
-      "files": ["packages/api/src/pages.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/pages.ts"],
       "acceptance": [
         "Validates token on page load",
         "Shows wallet info (truncated address)",
@@ -81,7 +91,8 @@
       "description": "Add Telegram command to generate QR code",
       "status": "pending",
       "dependencies": ["api-token-endpoints"],
-      "files": ["packages/bot/src/index.ts"],
+      "repo": "bot",
+      "files": ["~/agentic-wallet/packages/bot/src/index.ts"],
       "acceptance": [
         "/pair-mobile generates token via API",
         "Displays QR code image",
@@ -95,7 +106,8 @@
       "description": "Add Telegram command to view paired devices",
       "status": "pending",
       "dependencies": ["api-devices-endpoint"],
-      "files": ["packages/bot/src/index.ts"],
+      "repo": "bot",
+      "files": ["~/agentic-wallet/packages/bot/src/index.ts"],
       "acceptance": [
         "/devices lists all paired mobile devices",
         "Shows device name, paired date, status",
@@ -110,7 +122,8 @@
       "description": "Handle approval/deny for mobile pairing requests",
       "status": "pending",
       "dependencies": ["api-register-endpoint"],
-      "files": ["packages/bot/src/index.ts"],
+      "repo": "bot",
+      "files": ["~/agentic-wallet/packages/bot/src/index.ts"],
       "acceptance": [
         "Shows approval request message with device info",
         "Approve button opens add_authority webview",
@@ -124,7 +137,8 @@
       "description": "Add POST /api/pair-mobile/approve for on-chain add_authority",
       "status": "pending",
       "dependencies": ["api-register-endpoint"],
-      "files": ["packages/api/src/index.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/index.ts"],
       "acceptance": [
         "Receives owner signature from webview",
         "Builds add_authority transaction",
@@ -139,7 +153,8 @@
       "description": "Webview page for owner to sign add_authority",
       "status": "pending",
       "dependencies": ["api-approve-endpoint"],
-      "files": ["packages/api/src/pages.ts"],
+      "repo": "api",
+      "files": ["~/agentic-wallet/packages/api/src/pages.ts"],
       "acceptance": [
         "Shows mobile device info",
         "Sign with Passkey button",
@@ -160,6 +175,7 @@
         "bot-approval-callback",
         "web-approve-page"
       ],
+      "repos": ["api", "bot"],
       "files": [],
       "acceptance": [
         "Bot generates QR code",
@@ -170,5 +186,9 @@
         "/devices shows paired device"
       ]
     }
-  ]
+  ],
+  "deploy": {
+    "api": "sudo systemctl restart odyssey-api",
+    "bot": "sudo systemctl restart odyssey-bot"
+  }
 }
