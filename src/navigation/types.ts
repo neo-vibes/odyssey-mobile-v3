@@ -4,6 +4,19 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 
 // ============================================================================
+// Root Stack (Onboarding Flow)
+// ============================================================================
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Main: NavigatorScreenParams<RootTabParamList>;
+};
+
+export type OnboardingScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  "Onboarding"
+>;
+
+// ============================================================================
 // Agents Stack
 // ============================================================================
 export type AgentsStackParamList = {
@@ -88,6 +101,6 @@ export type SendScreenProps = CompositeScreenProps<
 // ============================================================================
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootTabParamList {}
+    interface RootParamList extends RootStackParamList {}
   }
 }

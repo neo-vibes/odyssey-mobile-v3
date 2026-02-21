@@ -4,14 +4,14 @@ import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
 import { config } from "@gluestack-ui/config";
 import { NavigationContainer } from "@react-navigation/native";
-import { TabNavigator } from "./src/navigation";
+import { RootNavigator } from "./src/navigation";
 
 export default function App() {
   return (
     <GluestackUIProvider config={config}>
       <NavigationContainer>
         <StatusBar style="light" />
-        <TabNavigator />
+        <RootNavigator />
       </NavigationContainer>
     </GluestackUIProvider>
   );
