@@ -5,6 +5,7 @@ import {
   Pressable,
   ActivityIndicator,
   Linking,
+  Image,
 } from "react-native";
 import { useWalletStore } from "../stores/useWalletStore";
 
@@ -143,7 +144,11 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
       <View className="flex-1 bg-background-base items-center justify-center px-8">
         {/* Tappable logo for dev mode */}
         <Pressable onPress={handleLogoTap}>
-          <Text className="text-4xl mb-4">❌</Text>
+          <Image
+            source={require("../../assets/logo.png")}
+            className="w-20 h-20 mb-4 opacity-50"
+            resizeMode="contain"
+          />
         </Pressable>
         <Text className="text-error text-h2 font-semibold mb-3">
           Link Failed
@@ -181,7 +186,11 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
     <View className="flex-1 bg-background-base items-center justify-center px-8">
       {/* Tappable logo for dev mode */}
       <Pressable onPress={handleLogoTap}>
-        <Text className="text-6xl mb-4">🚀</Text>
+        <Image
+          source={require("../../assets/logo.png")}
+          className="w-24 h-24 mb-4"
+          resizeMode="contain"
+        />
       </Pressable>
       <Text className="text-text-primary text-h1 font-bold mb-3">Odyssey</Text>
 
