@@ -1,5 +1,12 @@
 // Services exports
 export { api, default as apiClient } from './api';
+export { pairing, default as pairingClient } from './pairing';
+export {
+  parseTokenFromUrl,
+  getPairingDetails,
+  registerDevice,
+  pollApprovalStatus,
+} from './pairing';
 export {
   // Auth
   setAuthToken,
@@ -47,3 +54,11 @@ export type {
   WalletSendRequest,
   WalletSendResponse,
 } from './api';
+
+// Mobile pairing types (QR linking)
+export type {
+  PairingDetails,
+  RegisterDeviceParams,
+  RegisterDeviceResponse,
+  ApprovalStatus,
+} from './pairing';
