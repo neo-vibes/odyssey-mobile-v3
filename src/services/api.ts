@@ -269,10 +269,10 @@ export async function unpairAgent(agentId: string): Promise<ApiResponse<void>> {
 // =============================================================================
 
 /**
- * Get pending session requests
+ * Get pending session requests for a wallet
  */
-export async function getSessionRequests(): Promise<ApiResponse<SessionRequestsResponse>> {
-  return request<SessionRequestsResponse>('/api/sessions/requests');
+export async function getSessionRequests(walletPubkey: string): Promise<ApiResponse<SessionRequestsResponse>> {
+  return request<SessionRequestsResponse>(`/api/sessions/requests?walletPubkey=${walletPubkey}`);
 }
 
 /**

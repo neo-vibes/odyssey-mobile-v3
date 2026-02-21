@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useAgentsStore, useSessionsStore } from "../../stores";
 import { useWalletStore } from "../../stores/useWalletStore";
-import { getAgents } from "../../services/api";
+import { getAgents, getSessionRequests } from "../../services/api";
 import type { AgentsScreenProps } from "../../navigation/types";
 import type { PairingRequest, Agent } from "../../stores";
 import type { SessionRequest } from "../../stores";
@@ -223,6 +223,7 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
   const removePairingRequest = useAgentsStore((s) => s.removePairingRequest);
 
   const pendingSessionRequests = useSessionsStore((s) => s.pendingSessionRequests);
+  const setPendingSessionRequests = useSessionsStore((s) => s.setPendingSessionRequests);
   const removeSessionRequest = useSessionsStore((s) => s.removeSessionRequest);
 
   // Derived state
@@ -271,18 +272,33 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
   const fetchAgents = useCallback(async () => {
     if (!walletAddress) return;
     
-    const response = await getAgents(walletAddress);
-    if (response.ok && response.data) {
-      // Map API response to store format
-      const mappedAgents: Agent[] = response.data.agents.map((a: any) => ({
+    // Fetch paired agents
+    const agentsResponse = await getAgents(walletAddress);
+    if (agentsResponse.ok && agentsResponse.data) {
+      const mappedAgents: Agent[] = agentsResponse.data.agents.map((a: any) => ({
         id: a.agentId,
         name: a.agentName,
         pairedAt: new Date(a.pairedAt),
-        hasActiveSession: false, // TODO: Check sessions
+        hasActiveSession: false,
       }));
       setAgents(mappedAgents);
     }
-  }, [walletAddress, setAgents]);
+    
+    // Fetch pending session requests
+    const sessionsResponse = await getSessionRequests(walletAddress);
+    if (sessionsResponse.ok && sessionsResponse.data) {
+      const mappedRequests = sessionsResponse.data.requests.map((r: any) => ({
+        id: r.id,
+        agentId: r.agentId || r.sessionPubkey,
+        agentName: r.agentName,
+        requestedAt: new Date(r.createdAt),
+        expiresAt: new Date(Date.now() + (r.durationSeconds || 3600) * 1000),
+        durationSeconds: r.durationSeconds,
+        maxAmountSol: r.limits?.[0]?.amount || r.maxAmount || 0,
+      }));
+      setPendingSessionRequests(mappedRequests);
+    }
+  }, [walletAddress, setAgents, setPendingSessionRequests]);
 
   // Fetch on mount
   useEffect(() => {
