@@ -32,10 +32,17 @@ Odyssey Mobile v3 — React Native app for AI agent spending sessions
 6. **qmd on sub-agents** — Will spawned sessions have access to qmd? Or need alternative approach?
 
 ### Open questions
-1. How do we inject qmd capability into sub-agent context?
+1. ~~How do we inject qmd capability into sub-agent context?~~ **ANSWERED:** qmd available via exec, works
 2. Should we define shared types/components in a setup task first?
 3. How to handle Expo EAS build configuration?
 4. What's the definition of "runs without crash"? Simulator? Device?
+
+### Test Results (pre-execution)
+- ✅ Sub-agents have exec, read, write, edit
+- ✅ qmd is in PATH (`~/.bun/bin/qmd`)
+- ✅ qmd search works against `odyssey-mobile-specs` collection
+- ⚠️ Working directory is workspace, must cd to project
+- ⚠️ Model override in sessions_spawn may not apply (tested Sonnet, got Opus)
 
 ### Metrics to track
 - Total tasks created
