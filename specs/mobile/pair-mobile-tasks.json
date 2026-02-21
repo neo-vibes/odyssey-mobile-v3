@@ -1,0 +1,130 @@
+{
+  "feature": "mobile-device-pairing",
+  "spec": "specs/mobile/pair-mobile.md",
+  "tasks": [
+    {
+      "id": "api-token-endpoints",
+      "name": "API: Token generation and validation endpoints",
+      "description": "Add POST /api/pair-mobile/generate and GET /api/pair-mobile/:token endpoints",
+      "status": "pending",
+      "dependencies": [],
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "POST /api/pair-mobile/generate creates token with walletPubkey + telegramId",
+        "Token stored in memory with 10min expiry",
+        "GET /api/pair-mobile/:token returns wallet info if valid",
+        "Returns error if expired/invalid/used"
+      ]
+    },
+    {
+      "id": "api-register-endpoint",
+      "name": "API: Passkey registration endpoint",
+      "description": "Add POST /api/pair-mobile/register to receive mobile passkey",
+      "status": "pending",
+      "dependencies": ["api-token-endpoints"],
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "Receives credentialId, publicKey, rpIdHash",
+        "Validates token exists and not used",
+        "Stores passkey data with token",
+        "Sends approval request to Telegram",
+        "Returns requestId for tracking"
+      ]
+    },
+    {
+      "id": "web-pair-mobile-page",
+      "name": "Web: /pair-mobile page",
+      "description": "Create web page for passkey creation flow",
+      "status": "pending",
+      "dependencies": ["api-token-endpoints"],
+      "files": ["packages/api/src/pages.ts"],
+      "acceptance": [
+        "Validates token on page load",
+        "Shows wallet info (truncated address)",
+        "Create Passkey button triggers WebAuthn",
+        "Posts passkey to /api/pair-mobile/register",
+        "Shows waiting/success/error states",
+        "Mobile-friendly responsive design",
+        "Odyssey gold theme"
+      ]
+    },
+    {
+      "id": "bot-pair-mobile-command",
+      "name": "Bot: /pair-mobile command",
+      "description": "Add Telegram command to generate QR code",
+      "status": "pending",
+      "dependencies": ["api-token-endpoints"],
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "/pair-mobile generates token via API",
+        "Displays QR code image",
+        "Shows URL as text backup",
+        "Shows expiry time (10 min)"
+      ]
+    },
+    {
+      "id": "bot-approval-callback",
+      "name": "Bot: Mobile pairing approval callback",
+      "description": "Handle approval/deny for mobile pairing requests",
+      "status": "pending",
+      "dependencies": ["api-register-endpoint"],
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "Shows approval request message with device info",
+        "Approve button opens add_authority webview",
+        "Deny button cancels request",
+        "Success notification after approval"
+      ]
+    },
+    {
+      "id": "api-approve-endpoint",
+      "name": "API: Add authority approval endpoint",
+      "description": "Add POST /api/pair-mobile/approve for on-chain add_authority",
+      "status": "pending", 
+      "dependencies": ["api-register-endpoint"],
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "Receives owner signature from webview",
+        "Builds add_authority transaction",
+        "Submits to Solana (devnet)",
+        "Updates token status to approved",
+        "Returns tx signature"
+      ]
+    },
+    {
+      "id": "web-approve-page",
+      "name": "Web: Add authority approval page",
+      "description": "Webview page for owner to sign add_authority",
+      "status": "pending",
+      "dependencies": ["api-approve-endpoint"],
+      "files": ["packages/api/src/pages.ts"],
+      "acceptance": [
+        "Shows mobile device info",
+        "Sign with Passkey button",
+        "Triggers WebAuthn assertion",
+        "Posts to /api/pair-mobile/approve",
+        "Shows success/close state"
+      ]
+    },
+    {
+      "id": "integration-test",
+      "name": "Integration: End-to-end test",
+      "description": "Test full flow from /pair-mobile to on-chain authority",
+      "status": "pending",
+      "dependencies": [
+        "bot-pair-mobile-command",
+        "web-pair-mobile-page", 
+        "bot-approval-callback",
+        "web-approve-page"
+      ],
+      "files": [],
+      "acceptance": [
+        "Bot generates QR code",
+        "Mobile browser creates passkey",
+        "Telegram shows approval request",
+        "Owner approves, tx confirmed",
+        "Mobile passkey can sign session approvals"
+      ]
+    }
+  ]
+}
