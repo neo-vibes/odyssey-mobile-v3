@@ -5,8 +5,8 @@ import {
   Pressable,
   StyleSheet,
   Vibration,
-  Alert,
   Dimensions,
+  Linking,
 } from "react-native";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -43,6 +43,7 @@ export function ScanQRScreen() {
   const navigation = useNavigation<ScanQRScreenNavigationProp>();
   const [permission, requestPermission] = useCameraPermissions();
   const [hasScanned, setHasScanned] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const processingRef = useRef(false);
 
   // Handle barcode scan
@@ -59,27 +60,33 @@ export function ScanQRScreen() {
       if (token) {
         // Valid QR - haptic feedback and navigate back with token
         Vibration.vibrate(100);
+        setScanError(null);
         navigation.navigate("Onboarding", { token });
       } else {
-        // Invalid QR - show error toast
+        // Invalid QR - show inline error
         Vibration.vibrate([0, 50, 50, 50]); // Error pattern
-        Alert.alert(
-          "Invalid QR Code",
-          "Please scan a QR code from Telegram bot",
-          [
-            {
-              text: "Try Again",
-              onPress: () => {
-                setHasScanned(false);
-                processingRef.current = false;
-              },
-            },
-          ]
-        );
+        setScanError("Please scan a QR code from @odyssey_bot");
+        // Reset scanning after short delay to allow retry
+        setTimeout(() => {
+          setHasScanned(false);
+          processingRef.current = false;
+        }, 1500);
       }
     },
     [hasScanned, navigation]
   );
+
+  // Handle dismissing scan error
+  const handleDismissError = useCallback(() => {
+    setScanError(null);
+    setHasScanned(false);
+    processingRef.current = false;
+  }, []);
+
+  // Handle opening app settings
+  const handleOpenSettings = useCallback(() => {
+    Linking.openSettings();
+  }, []);
 
   // Handle back button press
   const handleBack = useCallback(() => {
@@ -105,24 +112,42 @@ export function ScanQRScreen() {
   }
 
   if (!permission.granted) {
-    // Permission not granted
+    // Check if permission was permanently denied (can't ask again)
+    const isPermanentlyDenied = permission.canAskAgain === false;
+
     return (
       <View className="flex-1 bg-background-base items-center justify-center px-8">
-        <Text className="text-text-primary text-h2 font-semibold mb-3 text-center">
-          Camera Access Required
+        {/* Error Icon */}
+        <Text className="text-4xl mb-4">📷</Text>
+        
+        <Text className={`text-h2 font-semibold mb-3 text-center ${isPermanentlyDenied ? 'text-error' : 'text-text-primary'}`}>
+          {isPermanentlyDenied ? 'Camera Access Denied' : 'Camera Access Required'}
         </Text>
         <Text className="text-text-secondary text-body text-center mb-8 max-w-[280px]">
-          We need camera access to scan the QR code from Telegram
+          {isPermanentlyDenied
+            ? 'Camera access is required to scan QR codes. Please enable it in Settings.'
+            : 'We need camera access to scan the QR code from Telegram'}
         </Text>
 
-        <Pressable
-          onPress={handleRequestPermission}
-          className="bg-gold px-6 py-4 rounded-xl active:opacity-80"
-        >
-          <Text className="text-background-base font-bold text-body">
-            Allow Camera Access
-          </Text>
-        </Pressable>
+        {isPermanentlyDenied ? (
+          <Pressable
+            onPress={handleOpenSettings}
+            className="bg-gold px-6 py-4 rounded-xl active:opacity-80"
+          >
+            <Text className="text-background-base font-bold text-body">
+              Open Settings
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={handleRequestPermission}
+            className="bg-gold px-6 py-4 rounded-xl active:opacity-80"
+          >
+            <Text className="text-background-base font-bold text-body">
+              Allow Camera Access
+            </Text>
+          </Pressable>
+        )}
 
         <Pressable
           onPress={handleBack}
@@ -200,14 +225,38 @@ export function ScanQRScreen() {
           />
         </View>
 
-        {/* Bottom Overlay with Instruction */}
+        {/* Bottom Overlay with Instruction or Error */}
         <View className="flex-1 bg-black/60 items-center pt-8">
-          <Text className="text-white text-body font-medium text-center">
-            Scan QR code from Telegram
-          </Text>
-          <Text className="text-text-secondary text-caption mt-2 text-center">
-            Open @odyssey_bot and use /pair_mobile
-          </Text>
+          {scanError ? (
+            <>
+              {/* Error Message */}
+              <View className="bg-error/20 border border-error rounded-xl px-4 py-3 mx-6 mb-4">
+                <Text className="text-error text-body font-medium text-center">
+                  ⚠️ Invalid QR Code
+                </Text>
+                <Text className="text-error/80 text-caption text-center mt-1">
+                  {scanError}
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleDismissError}
+                className="bg-white/20 px-6 py-3 rounded-xl active:opacity-80"
+              >
+                <Text className="text-white font-semibold text-body">
+                  Try Again
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text className="text-white text-body font-medium text-center">
+                Scan QR code from Telegram
+              </Text>
+              <Text className="text-text-secondary text-caption mt-2 text-center">
+                Open @odyssey_bot and use /pair_mobile
+              </Text>
+            </>
+          )}
         </View>
       </View>
 

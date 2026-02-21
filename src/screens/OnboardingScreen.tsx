@@ -60,6 +60,111 @@ const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes timeout
 
 // =============================================================================
+// Error Types & Messages
+// =============================================================================
+
+type ErrorType =
+  | "token_expired"
+  | "passkey_failed"
+  | "approval_denied"
+  | "timeout"
+  | "network"
+  | "generic";
+
+interface ErrorInfo {
+  type: ErrorType;
+  title: string;
+  message: string;
+}
+
+const ERROR_MESSAGES: Record<ErrorType, { title: string; message: string }> = {
+  token_expired: {
+    title: "QR Code Expired",
+    message: "QR code expired. Please generate a new one in Telegram.",
+  },
+  passkey_failed: {
+    title: "Authentication Required",
+    message: "Face ID / Touch ID is required to link your wallet.",
+  },
+  approval_denied: {
+    title: "Request Denied",
+    message: "The linking request was denied in Telegram. Please try again.",
+  },
+  timeout: {
+    title: "Request Timed Out",
+    message: "Approval timed out after 5 minutes. Please try again.",
+  },
+  network: {
+    title: "Connection Failed",
+    message: "Connection failed. Please check your internet and try again.",
+  },
+  generic: {
+    title: "Link Failed",
+    message: "Could not link wallet. Please try again.",
+  },
+};
+
+/**
+ * Classify error into specific type for appropriate messaging
+ */
+function classifyError(error: unknown): ErrorInfo {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+
+    // Token/QR expired
+    if (
+      message.includes("expired") ||
+      message.includes("not found") ||
+      message.includes("404") ||
+      message.includes("invalid token")
+    ) {
+      return { type: "token_expired", ...ERROR_MESSAGES.token_expired };
+    }
+
+    // Passkey/biometric errors
+    if (
+      message.includes("passkey") ||
+      message.includes("biometric") ||
+      message.includes("face id") ||
+      message.includes("touch id") ||
+      message.includes("authentication") ||
+      message.includes("user cancelled") ||
+      message.includes("not enrolled")
+    ) {
+      return { type: "passkey_failed", ...ERROR_MESSAGES.passkey_failed };
+    }
+
+    // Approval denied
+    if (message.includes("denied") || message.includes("rejected")) {
+      return { type: "approval_denied", ...ERROR_MESSAGES.approval_denied };
+    }
+
+    // Timeout
+    if (message.includes("timed out") || message.includes("timeout")) {
+      return { type: "timeout", ...ERROR_MESSAGES.timeout };
+    }
+
+    // Network errors
+    if (
+      message.includes("network") ||
+      message.includes("fetch") ||
+      message.includes("connection") ||
+      message.includes("internet") ||
+      error.name === "TypeError" // fetch throws TypeError on network failure
+    ) {
+      return { type: "network", ...ERROR_MESSAGES.network };
+    }
+  }
+
+  // Check for TypeError (common for network failures)
+  if (error instanceof TypeError) {
+    return { type: "network", ...ERROR_MESSAGES.network };
+  }
+
+  return { type: "generic", ...ERROR_MESSAGES.generic };
+}
+
+// =============================================================================
 // Passkey Helper (placeholder for react-native-passkey)
 // =============================================================================
 
@@ -138,7 +243,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   const route = useRoute<OnboardingScreenRouteProp>();
   const [state, setState] = useState<OnboardingState>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
   const { setAddress, setTelegramId, setIsLinked } = useWalletStore();
 
   // Refs for cleanup
@@ -182,7 +287,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
       isCancelledRef.current = false;
       setState("linking");
       setStatusMessage("Linking wallet...");
-      setErrorMessage(null);
+      setErrorInfo(null);
 
       let pairingDetails: PairingDetails | null = null;
       let passkeyCreds: PasskeyCredential | null = null;
@@ -190,7 +295,25 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
       try {
         // Step 1: Get pairing details
         console.log("🔗 Step 1: Fetching pairing details...");
-        pairingDetails = await getPairingDetails(token);
+        
+        try {
+          pairingDetails = await getPairingDetails(token);
+        } catch (fetchError) {
+          // Check if it's a network error
+          if (fetchError instanceof TypeError) {
+            throw new Error("network: Connection failed");
+          }
+          // Check for 404/expired token in error message
+          const errorMsg = fetchError instanceof Error ? fetchError.message : "";
+          if (
+            errorMsg.includes("not found") ||
+            errorMsg.includes("404") ||
+            errorMsg.includes("invalid")
+          ) {
+            throw new Error("expired: Token not found or invalid");
+          }
+          throw fetchError;
+        }
 
         if (isCancelledRef.current) return;
 
@@ -202,15 +325,22 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
 
         // Check if token is still valid
         if (pairingDetails.status === "expired") {
-          throw new Error("QR code expired. Generate new one in Telegram");
+          throw new Error("expired: QR code has expired");
         }
 
         // Step 2: Create passkey
         console.log("🔐 Step 2: Creating passkey...");
         setState("creating_passkey");
-        setStatusMessage("Creating passkey...");
+        setStatusMessage("Authenticating with Face ID / Touch ID...");
 
-        passkeyCreds = await createPasskey(pairingDetails.walletPubkey);
+        try {
+          passkeyCreds = await createPasskey(pairingDetails.walletPubkey);
+        } catch (passkeyError) {
+          // Wrap passkey errors for proper classification
+          const errorMsg =
+            passkeyError instanceof Error ? passkeyError.message : "unknown";
+          throw new Error(`passkey: ${errorMsg}`);
+        }
 
         if (isCancelledRef.current) return;
 
@@ -223,38 +353,48 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
         setState("registering");
         setStatusMessage("Registering device...");
 
-        const registerResponse = await registerDevice({
-          token,
-          deviceName: getDeviceName(),
-          publicKey: passkeyCreds.publicKey,
-          credentialId: passkeyCreds.credentialId,
-        });
+        try {
+          const registerResponse = await registerDevice({
+            token,
+            deviceName: getDeviceName(),
+            publicKey: passkeyCreds.publicKey,
+            credentialId: passkeyCreds.credentialId,
+          });
 
-        if (isCancelledRef.current) return;
+          if (isCancelledRef.current) return;
 
-        console.log("✅ Device registered, requestId:", registerResponse.requestId);
+          console.log(
+            "✅ Device registered, requestId:",
+            registerResponse.requestId
+          );
 
-        // Step 4: Poll for approval
-        console.log("⏳ Step 4: Waiting for approval...");
-        setState("waiting_approval");
-        setStatusMessage("Waiting for approval in Telegram...");
+          // Step 4: Poll for approval
+          console.log("⏳ Step 4: Waiting for approval...");
+          setState("waiting_approval");
+          setStatusMessage("Waiting for approval in Telegram...");
 
-        // Start the polling and timeout
-        await pollForApproval(
-          registerResponse.requestId,
-          pairingDetails,
-          passkeyCreds.credentialId
-        );
+          // Start the polling and timeout
+          await pollForApproval(
+            registerResponse.requestId,
+            pairingDetails,
+            passkeyCreds.credentialId
+          );
+        } catch (registerError) {
+          // Check for network errors during registration
+          if (registerError instanceof TypeError) {
+            throw new Error("network: Connection failed during registration");
+          }
+          throw registerError;
+        }
       } catch (error) {
         if (isCancelledRef.current) return;
 
         console.error("❌ Linking failed:", error);
         setState("error");
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not link wallet. Please try again."
-        );
+
+        // Classify the error and set appropriate messaging
+        const classified = classifyError(error);
+        setErrorInfo(classified);
       }
     },
     [setAddress, setTelegramId, setIsLinked, onLinkComplete]
@@ -380,7 +520,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   const handleRetry = useCallback(() => {
     setState("idle");
     setStatusMessage("");
-    setErrorMessage(null);
+    setErrorInfo(null);
     // Clear any active timers
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
@@ -431,44 +571,72 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   }
 
   // Error State
-  if (state === "error") {
+  if (state === "error" && errorInfo) {
+    // Pick appropriate icon based on error type
+    const errorIcon =
+      errorInfo.type === "network"
+        ? "📡"
+        : errorInfo.type === "timeout"
+        ? "⏱️"
+        : errorInfo.type === "token_expired"
+        ? "⌛"
+        : errorInfo.type === "passkey_failed"
+        ? "🔐"
+        : "⚠️";
+
     return (
       <View className="flex-1 bg-background-base items-center justify-center px-8">
         {/* Tappable logo for dev mode */}
         <Pressable onPress={handleLogoTap}>
           <Image
             source={require("../../assets/logo.png")}
-            className="w-20 h-20 mb-4 opacity-50"
+            className="w-20 h-20 mb-2 opacity-50"
             resizeMode="contain"
           />
         </Pressable>
-        <Text className="text-error text-h2 font-semibold mb-3">
-          Link Failed
-        </Text>
-        <Text className="text-text-secondary text-body text-center mb-8 max-w-[280px]">
-          {errorMessage ||
-            "Could not connect to wallet. Make sure you have a wallet in @odyssey_bot first."}
+
+        {/* Error Icon */}
+        <Text className="text-4xl mb-4">{errorIcon}</Text>
+
+        {/* Error Title */}
+        <Text className="text-error text-h2 font-semibold mb-3 text-center">
+          {errorInfo.title}
         </Text>
 
+        {/* Error Message */}
+        <Text className="text-text-secondary text-body text-center mb-8 max-w-[280px]">
+          {errorInfo.message}
+        </Text>
+
+        {/* Action Buttons */}
         <View className="flex-row gap-3">
           <Pressable
             onPress={handleRetry}
-            className="bg-background-elevated border border-text-secondary/30 px-6 py-3 rounded-xl active:opacity-80"
+            className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
           >
-            <Text className="text-text-primary font-semibold text-body">
+            <Text className="text-background-base font-semibold text-body">
               Try Again
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={handleCreateWallet}
-            className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
-          >
-            <Text className="text-background-base font-semibold text-body">
-              Create Wallet →
-            </Text>
-          </Pressable>
+          {/* Show "Create Wallet" only for certain error types */}
+          {(errorInfo.type === "generic" ||
+            errorInfo.type === "token_expired") && (
+            <Pressable
+              onPress={handleCreateWallet}
+              className="bg-background-elevated border border-text-secondary/30 px-6 py-3 rounded-xl active:opacity-80"
+            >
+              <Text className="text-text-primary font-semibold text-body">
+                Open Telegram
+              </Text>
+            </Pressable>
+          )}
         </View>
+
+        {/* Dismiss hint */}
+        <Text className="text-text-muted text-caption mt-6">
+          Tap "Try Again" to scan a new QR code
+        </Text>
       </View>
     );
   }
