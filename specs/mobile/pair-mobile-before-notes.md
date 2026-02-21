@@ -40,11 +40,16 @@ After each task:
 
 ## Technical Constraints
 
-### Repo Locations
-- **API:** `~/agentic-wallet/packages/api/src/index.ts`
-- **Bot:** `~/agentic-wallet/packages/bot/src/index.ts`
-- **Pages:** `~/agentic-wallet/packages/api/src/pages.ts`
-- **Spec:** `~/odyssey-mobile-v3/specs/mobile/pair-mobile.md`
+### Repos & Paths
+| Repo | Path | Main File |
+|------|------|-----------|
+| API | `~/agentic-wallet/packages/api` | `src/index.ts` |
+| Pages | `~/agentic-wallet/packages/api` | `src/pages.ts` |
+| Bot | `~/agentic-wallet/packages/bot` | `src/index.ts` |
+| Specs | `~/odyssey-mobile-v3/specs/mobile` | `pair-mobile.md` |
+
+### Working Directory
+Run all commands from workspace root or use full paths. Sub-agents should `cd` to the correct repo before making changes.
 
 ### Dependencies
 - Existing passkey/WebAuthn code in pages.ts

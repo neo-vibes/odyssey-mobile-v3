@@ -1,5 +1,10 @@
 # Mobile Device Pairing
 
+## Repos
+- **API & Web:** `~/agentic-wallet/packages/api`
+- **Bot:** `~/agentic-wallet/packages/bot`
+- **Mobile App:** `~/odyssey-mobile-v3`
+
 ## Overview
 Allow users to add their mobile device as an authority on their Odyssey wallet. Once paired, the mobile can sign session approvals directly without going through Telegram.
 
@@ -202,13 +207,21 @@ Uses `add_authority` instruction:
 
 ## Files to Create/Modify
 
-### New Files
-- `packages/api/src/pages/pair-mobile.ts` - Web page HTML
-- Bot: Add `/pair-mobile` command handler
+### API (~/agentic-wallet/packages/api)
+- `src/index.ts` - Add API endpoints (token, register, approve, devices)
+- `src/pages.ts` - Add /pair-mobile web page HTML
 
-### Modified Files
-- `packages/api/src/index.ts` - Add API endpoints
-- `packages/bot/src/index.ts` - Add command handler
+### Bot (~/agentic-wallet/packages/bot)
+- `src/index.ts` - Add /pair-mobile, /devices commands and approval callbacks
+
+### Deploy Commands
+```bash
+# After API changes
+cd ~/agentic-wallet/packages/api && npm run build && sudo systemctl restart odyssey-api
+
+# After Bot changes  
+cd ~/agentic-wallet/packages/bot && npm run build && sudo systemctl restart odyssey-bot
+```
 
 ## Dependencies
 - QR code generation: Use existing `qrcode` package or inline SVG
