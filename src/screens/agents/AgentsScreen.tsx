@@ -30,7 +30,7 @@ function PairingRequestCard({
   const timeAgo = getTimeAgo(request.requestedAt);
 
   return (
-    <View className="bg-gray-800 rounded-xl p-4 mb-3 border border-gray-700">
+    <View className="bg-background-elevated rounded-xl p-4 mb-3 border border-background-elevated">
       <View className="flex-row items-center mb-2">
         <Text className="text-lg mr-2">🔗</Text>
         <Text className="text-white font-semibold text-base">
@@ -38,10 +38,10 @@ function PairingRequestCard({
         </Text>
       </View>
 
-      <Text className="text-gray-300 mb-1">
+      <Text className="text-text-primary mb-1">
         Agent: <Text className="text-white font-medium">{request.agentName}</Text>
       </Text>
-      <Text className="text-gray-500 text-sm mb-4">Requested: {timeAgo}</Text>
+      <Text className="text-text-muted text-sm mb-4">Requested: {timeAgo}</Text>
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row">
@@ -62,7 +62,7 @@ function PairingRequestCard({
           onPress={onDetails}
           className="px-4 py-2 active:opacity-60"
         >
-          <Text className="text-blue-400 font-semibold">Details</Text>
+          <Text className="text-gold font-semibold">Details</Text>
         </Pressable>
       </View>
     </View>
@@ -88,7 +88,7 @@ function SessionRequestCard({
   const durationStr = formatDuration(request.durationSeconds);
 
   return (
-    <View className="bg-gray-800 rounded-xl p-4 mb-3 border border-gray-700">
+    <View className="bg-background-elevated rounded-xl p-4 mb-3 border border-background-elevated">
       <View className="flex-row items-center mb-2">
         <Text className="text-lg mr-2">🔐</Text>
         <Text className="text-white font-semibold text-base">
@@ -96,10 +96,10 @@ function SessionRequestCard({
         </Text>
       </View>
 
-      <Text className="text-gray-300 mb-1">
+      <Text className="text-text-primary mb-1">
         {request.agentName} • {durationStr} • {request.limitSol} SOL
       </Text>
-      <Text className="text-gray-500 text-sm mb-4">
+      <Text className="text-text-muted text-sm mb-4">
         Requested: {getTimeAgo(request.requestedAt)}
       </Text>
 
@@ -122,7 +122,7 @@ function SessionRequestCard({
           onPress={onDetails}
           className="px-4 py-2 active:opacity-60"
         >
-          <Text className="text-blue-400 font-semibold">Details</Text>
+          <Text className="text-gold font-semibold">Details</Text>
         </Pressable>
       </View>
     </View>
@@ -141,7 +141,7 @@ function AgentRow({ agent, onPress }: AgentRowProps) {
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center justify-between py-4 px-2 border-b border-gray-800 active:bg-gray-800/50"
+      className="flex-row items-center justify-between py-4 px-2 border-b border-gray-800 active:bg-background-elevated/50"
     >
       <View className="flex-row items-center">
         {agent.hasActiveSession && (
@@ -149,7 +149,7 @@ function AgentRow({ agent, onPress }: AgentRowProps) {
         )}
         <Text className="text-white text-base font-medium">{agent.name}</Text>
       </View>
-      <Text className="text-gray-500 text-xl">›</Text>
+      <Text className="text-text-muted text-xl">›</Text>
     </Pressable>
   );
 }
@@ -164,14 +164,14 @@ interface EmptyStateProps {
 function EmptyState({ onPairAgent }: EmptyStateProps) {
   return (
     <View className="flex-1 items-center justify-center px-8">
-      <Text className="text-gray-400 text-lg text-center mb-6">
+      <Text className="text-text-secondary text-lg text-center mb-6">
         No agents paired yet
       </Text>
       <Pressable
         onPress={onPairAgent}
-        className="bg-blue-600 px-6 py-3 rounded-lg active:opacity-80"
+        className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
       >
-        <Text className="text-white font-semibold">Pair Your First Agent</Text>
+        <Text className="text-background-base font-semibold">Pair Your First Agent</Text>
       </Pressable>
     </View>
   );
@@ -283,14 +283,14 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
   // Render empty state
   if (showEmptyState) {
     return (
-      <View className="flex-1 bg-gray-900">
+      <View className="flex-1 bg-background-base">
         <EmptyState onPairAgent={navigateToPairAgent} />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-900">
+    <View className="flex-1 bg-background-base">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -340,14 +340,14 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
           <View className="px-4 mt-4">
             {/* Section divider */}
             {hasPendingRequests && (
-              <View className="border-t border-gray-700 mb-4" />
+              <View className="border-t border-background-elevated mb-4" />
             )}
 
-            <Text className="text-gray-400 text-sm font-medium uppercase tracking-wide mb-2">
+            <Text className="text-text-secondary text-sm font-medium uppercase tracking-wide mb-2">
               Paired Agents
             </Text>
 
-            <View className="bg-gray-800/50 rounded-xl overflow-hidden">
+            <View className="bg-background-elevated/50 rounded-xl overflow-hidden">
               {agents.map((agent, index) => (
                 <React.Fragment key={agent.id}>
                   <AgentRow
@@ -367,9 +367,9 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
         <View className="px-4 mt-6">
           <Pressable
             onPress={navigateToPairAgent}
-            className="bg-blue-600 py-4 rounded-xl items-center active:opacity-80"
+            className="bg-gold py-4 rounded-xl items-center active:opacity-80"
           >
-            <Text className="text-white font-semibold text-base">
+            <Text className="text-background-base font-semibold text-base">
               + Pair New Agent
             </Text>
           </Pressable>
