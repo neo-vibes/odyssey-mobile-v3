@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useAgentsStore, useSessionsStore } from "../../stores";
+import { useWalletStore } from "../../stores/useWalletStore";
+import { getAgents } from "../../services/api";
 import type { AgentsScreenProps } from "../../navigation/types";
 import type { PairingRequest, Agent } from "../../stores";
 import type { SessionRequest } from "../../stores";
@@ -211,8 +213,12 @@ function formatDuration(seconds: number): string {
 export function AgentsScreen({ navigation }: AgentsScreenProps) {
   const [refreshing, setRefreshing] = React.useState(false);
 
+  // Wallet store
+  const walletAddress = useWalletStore((s) => s.address);
+
   // Store selectors
   const agents = useAgentsStore((s) => s.agents);
+  const setAgents = useAgentsStore((s) => s.setAgents);
   const pendingPairingRequests = useAgentsStore((s) => s.pendingPairingRequests);
   const removePairingRequest = useAgentsStore((s) => s.removePairingRequest);
 
@@ -262,12 +268,32 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     [removeSessionRequest]
   );
 
+  const fetchAgents = useCallback(async () => {
+    if (!walletAddress) return;
+    
+    const response = await getAgents(walletAddress);
+    if (response.ok && response.data) {
+      // Map API response to store format
+      const mappedAgents: Agent[] = response.data.agents.map((a: any) => ({
+        id: a.agentId,
+        name: a.agentName,
+        pairedAt: new Date(a.pairedAt),
+        hasActiveSession: false, // TODO: Check sessions
+      }));
+      setAgents(mappedAgents);
+    }
+  }, [walletAddress, setAgents]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    // TODO: Fetch agents and pending requests from API
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await fetchAgents();
     setRefreshing(false);
-  }, []);
+  }, [fetchAgents]);
 
   const navigateToPairAgent = useCallback(() => {
     navigation.navigate("PairAgentScreen");

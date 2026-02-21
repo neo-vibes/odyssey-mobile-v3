@@ -251,8 +251,8 @@ export async function denyPairingRequest(
 /**
  * Get list of all paired agents
  */
-export async function getAgents(): Promise<ApiResponse<AgentsListResponse>> {
-  return request<AgentsListResponse>('/api/agents');
+export async function getAgents(walletPubkey: string): Promise<ApiResponse<AgentsListResponse>> {
+  return request<AgentsListResponse>(`/api/pairing/agents/${walletPubkey}`);
 }
 
 /**
