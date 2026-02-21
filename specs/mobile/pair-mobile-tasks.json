@@ -32,6 +32,33 @@
       ]
     },
     {
+      "id": "api-devices-endpoint",
+      "name": "API: List paired devices endpoint",
+      "description": "Add GET /api/devices/:walletPubkey to list paired mobile devices",
+      "status": "pending",
+      "dependencies": [],
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "Returns list of paired mobile devices for wallet",
+        "Includes device name, pairedAt, status",
+        "Returns empty array if no devices"
+      ]
+    },
+    {
+      "id": "api-unpair-endpoint",
+      "name": "API: Unpair device endpoint",
+      "description": "Add POST /api/devices/unpair for removing mobile authority",
+      "status": "pending",
+      "dependencies": ["api-devices-endpoint"],
+      "files": ["packages/api/src/index.ts"],
+      "acceptance": [
+        "Receives deviceId and owner signature",
+        "Calls remove_authority on Lazorkit",
+        "Removes device from store",
+        "Returns success/tx signature"
+      ]
+    },
+    {
       "id": "web-pair-mobile-page",
       "name": "Web: /pair-mobile page",
       "description": "Create web page for passkey creation flow",
@@ -63,6 +90,21 @@
       ]
     },
     {
+      "id": "bot-devices-command",
+      "name": "Bot: /devices command",
+      "description": "Add Telegram command to view paired devices",
+      "status": "pending",
+      "dependencies": ["api-devices-endpoint"],
+      "files": ["packages/bot/src/index.ts"],
+      "acceptance": [
+        "/devices lists all paired mobile devices",
+        "Shows device name, paired date, status",
+        "Unpair button for each device",
+        "Pair New Device button if < max devices",
+        "Empty state if no devices"
+      ]
+    },
+    {
       "id": "bot-approval-callback",
       "name": "Bot: Mobile pairing approval callback",
       "description": "Handle approval/deny for mobile pairing requests",
@@ -80,7 +122,7 @@
       "id": "api-approve-endpoint",
       "name": "API: Add authority approval endpoint",
       "description": "Add POST /api/pair-mobile/approve for on-chain add_authority",
-      "status": "pending", 
+      "status": "pending",
       "dependencies": ["api-register-endpoint"],
       "files": ["packages/api/src/index.ts"],
       "acceptance": [
@@ -113,7 +155,8 @@
       "status": "pending",
       "dependencies": [
         "bot-pair-mobile-command",
-        "web-pair-mobile-page", 
+        "bot-devices-command",
+        "web-pair-mobile-page",
         "bot-approval-callback",
         "web-approve-page"
       ],
@@ -123,7 +166,8 @@
         "Mobile browser creates passkey",
         "Telegram shows approval request",
         "Owner approves, tx confirmed",
-        "Mobile passkey can sign session approvals"
+        "Mobile passkey can sign session approvals",
+        "/devices shows paired device"
       ]
     }
   ]

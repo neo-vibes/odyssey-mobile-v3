@@ -138,6 +138,30 @@ Or open: https://app.getodyssey.xyz/pair-mobile?token=xxx
 ⏱️ Expires in 10 minutes
 ```
 
+#### /devices
+```
+📱 *Paired Devices*
+
+1. 📱 iPhone (paired Feb 21, 2026)
+   Status: Active
+   [Unpair]
+
+2. 📱 Android (paired Feb 20, 2026)
+   Status: Active  
+   [Unpair]
+
+[+ Pair New Device]
+```
+
+If no devices:
+```
+📱 *No Devices Paired*
+
+Pair your mobile to approve sessions directly.
+
+[Pair Mobile Device]
+```
+
 ### Web Pages
 
 #### /pair-mobile (new page)
