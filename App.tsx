@@ -3,13 +3,16 @@ import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
 import { config } from "@gluestack-ui/config";
-import { StyleTest } from "./components/StyleTest";
+import { NavigationContainer } from "@react-navigation/native";
+import { TabNavigator } from "./src/navigation";
 
 export default function App() {
   return (
     <GluestackUIProvider config={config}>
-      <StatusBar style="light" />
-      <StyleTest />
+      <NavigationContainer>
+        <StatusBar style="light" />
+        <TabNavigator />
+      </NavigationContainer>
     </GluestackUIProvider>
   );
 }
