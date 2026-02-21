@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useWalletStore } from "../stores/useWalletStore";
 import { OnboardingScreen } from "../screens/OnboardingScreen";
+import { ScanQRScreen } from "../screens/ScanQRScreen";
 import { TabNavigator } from "./TabNavigator";
 
 // =============================================================================
@@ -9,7 +10,8 @@ import { TabNavigator } from "./TabNavigator";
 // =============================================================================
 
 export type RootStackParamList = {
-  Onboarding: undefined;
+  Onboarding: { token?: string } | undefined;
+  ScanQR: undefined;
   Main: undefined;
 };
 

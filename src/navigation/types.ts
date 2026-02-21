@@ -7,7 +7,8 @@ import type { CompositeScreenProps } from "@react-navigation/native";
 // Root Stack (Onboarding Flow)
 // ============================================================================
 export type RootStackParamList = {
-  Onboarding: undefined;
+  Onboarding: { token?: string } | undefined;
+  ScanQR: undefined;
   Main: NavigatorScreenParams<RootTabParamList>;
 };
 
