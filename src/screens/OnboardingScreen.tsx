@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -22,7 +22,9 @@ interface OnboardingScreenProps {
 // Constants
 // =============================================================================
 
-const TELEGRAM_BOT_LINK = "https://t.me/odyssey_bot";
+const TELEGRAM_BOT_LINK = "https://t.me/odyssey_session_bot";
+const DEV_WALLET_ADDRESS = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+const DEV_TAP_COUNT = 5;
 
 // =============================================================================
 // OnboardingScreen Component
@@ -32,6 +34,33 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   const [state, setState] = useState<OnboardingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { setAddress, setIsLinked } = useWalletStore();
+  
+  // Dev mode: tap logo 5x to bypass
+  const tapCountRef = useRef(0);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLogoTap = useCallback(() => {
+    tapCountRef.current += 1;
+    
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+    
+    if (tapCountRef.current >= DEV_TAP_COUNT) {
+      // Dev mode activated - use mock wallet
+      console.log("🔧 Dev mode: Using mock wallet");
+      setAddress(DEV_WALLET_ADDRESS);
+      setIsLinked(true);
+      onLinkComplete?.();
+      tapCountRef.current = 0;
+      return;
+    }
+    
+    // Reset tap count after 2 seconds of inactivity
+    tapTimeoutRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 2000);
+  }, [setAddress, setIsLinked, onLinkComplete]);
 
   // Handle "Link Telegram Wallet" button press
   const handleLinkWallet = useCallback(async () => {
@@ -110,7 +139,10 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   if (state === "error") {
     return (
       <View className="flex-1 bg-background-base items-center justify-center px-8">
-        <Text className="text-4xl mb-4">❌</Text>
+        {/* Tappable logo for dev mode */}
+        <Pressable onPress={handleLogoTap}>
+          <Text className="text-4xl mb-4">❌</Text>
+        </Pressable>
         <Text className="text-error text-h2 font-semibold mb-3">
           Link Failed
         </Text>
@@ -145,8 +177,10 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   // Idle State (Default)
   return (
     <View className="flex-1 bg-background-base items-center justify-center px-8">
-      {/* Logo */}
-      <Text className="text-6xl mb-4">🚀</Text>
+      {/* Tappable logo for dev mode */}
+      <Pressable onPress={handleLogoTap}>
+        <Text className="text-6xl mb-4">🚀</Text>
+      </Pressable>
       <Text className="text-text-primary text-h1 font-bold mb-3">Odyssey</Text>
 
       {/* Tagline */}
