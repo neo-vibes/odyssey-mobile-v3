@@ -32,7 +32,17 @@ export function RootNavigator() {
       }}
     >
       {!isLinked ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen
+            name="ScanQR"
+            component={ScanQRScreen}
+            options={{
+              animation: "slide_from_bottom",
+              presentation: "fullScreenModal",
+            }}
+          />
+        </>
       ) : (
         <Stack.Screen name="Main" component={TabNavigator} />
       )}

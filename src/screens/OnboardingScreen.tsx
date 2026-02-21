@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,26 @@ import {
   Linking,
   Image,
 } from "react-native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useWalletStore } from "../stores/useWalletStore";
 
 // =============================================================================
 // Types
 // =============================================================================
+
+type RootStackParamList = {
+  Onboarding: { token?: string } | undefined;
+  ScanQR: undefined;
+  Main: undefined;
+};
+
+type OnboardingScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "Onboarding"
+>;
+
+type OnboardingScreenRouteProp = RouteProp<RootStackParamList, "Onboarding">;
 
 type OnboardingState = "idle" | "loading" | "error";
 
@@ -33,6 +48,8 @@ const DEV_TAP_COUNT = 5;
 // =============================================================================
 
 export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
+  const navigation = useNavigation<OnboardingScreenNavigationProp>();
+  const route = useRoute<OnboardingScreenRouteProp>();
   const [state, setState] = useState<OnboardingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { setAddress, setTelegramId, setIsLinked } = useWalletStore();
@@ -40,6 +57,45 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   // Dev mode: tap logo 5x to bypass
   const tapCountRef = useRef(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle token from QR scan
+  useEffect(() => {
+    const token = route.params?.token;
+    if (token) {
+      // Token received from ScanQR - start linking process
+      console.log("📱 Received token from QR scan:", token.substring(0, 8) + "...");
+      handleTokenReceived(token);
+    }
+  }, [route.params?.token]);
+
+  // Process the token received from QR scan
+  const handleTokenReceived = useCallback(async (token: string) => {
+    setState("loading");
+    setErrorMessage(null);
+
+    try {
+      // TODO: Implement full linking flow:
+      // 1. GET /api/pair-mobile/:token - fetch wallet details
+      // 2. Create passkey (Face ID / Touch ID)
+      // 3. POST /api/pair-mobile/register - send device info
+      // 4. Poll for approval status
+      // 5. On approval, save wallet and complete
+
+      // For now, simulate the process
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      // TODO: Replace with actual implementation
+      throw new Error("Mobile linking flow not yet implemented");
+      
+    } catch (error) {
+      setState("error");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not link wallet. Please try again."
+      );
+    }
+  }, [setAddress, setTelegramId, setIsLinked, onLinkComplete]);
 
   const handleLogoTap = useCallback(() => {
     tapCountRef.current += 1;
@@ -66,45 +122,10 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   }, [setAddress, setIsLinked, onLinkComplete]);
 
   // Handle "Link Telegram Wallet" button press
-  const handleLinkWallet = useCallback(async () => {
-    setState("loading");
-    setErrorMessage(null);
-
-    try {
-      // TODO: Implement Telegram OAuth / QR scan flow
-      // For now, simulate the linking process
-      // This will be replaced with actual Telegram login integration
-
-      // Simulated delay for demo
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // TODO: Replace with actual wallet linking logic:
-      // 1. Open Telegram OAuth / show QR code
-      // 2. User authenticates via Telegram
-      // 3. Server identifies wallet via telegramId
-      // 4. Mobile creates passkey
-      // 5. Mobile signs challenge (off-chain)
-      // 6. Server sends "Add device" request to Telegram
-      // 7. User approves on Telegram
-      // 8. Mobile passkey added as signer
-
-      // For demo purposes, throw an error to show error state
-      // Remove this in production
-      throw new Error("Telegram linking not yet implemented");
-
-      // Success flow (uncomment when implemented):
-      // setAddress(walletAddress);
-      // setIsLinked(true);
-      // onLinkComplete?.();
-    } catch (error) {
-      setState("error");
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not connect to wallet. Make sure you have a wallet in @odyssey_bot first."
-      );
-    }
-  }, [setAddress, setIsLinked, onLinkComplete]);
+  const handleLinkWallet = useCallback(() => {
+    // Navigate to QR scanner
+    navigation.navigate("ScanQR");
+  }, [navigation]);
 
   // Handle retry after error
   const handleRetry = useCallback(() => {
