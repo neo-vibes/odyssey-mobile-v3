@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Passkey } from "react-native-passkey";
-import * as Crypto from "expo-crypto";
+import { sha256 } from "js-sha256";
 import { useAgentsStore, useSessionsStore } from "../../stores";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { getSessionRequests } from "../../services/api";
@@ -300,13 +300,9 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
       const challengeData = buildSessionChallenge(approvalData);
       
       // 3. Hash challenge with SHA-256 for WebAuthn
-      // Convert Uint8Array to string for expo-crypto
-      const challengeString = String.fromCharCode(...challengeData);
-      const challengeHashBase64 = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        challengeString,
-        { encoding: Crypto.CryptoEncoding.BASE64 }
-      );
+      const hashArrayBuffer = sha256.arrayBuffer(challengeData);
+      const hashBytes = new Uint8Array(hashArrayBuffer);
+      const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes));
       
       // 4. Call Passkey.get with hashed challenge
       const result = await Passkey.get({
