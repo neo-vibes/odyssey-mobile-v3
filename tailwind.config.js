@@ -1,13 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // NativeWind v4
   content: [
     "./App.{js,jsx,ts,tsx}",
     "./app/**/*.{js,jsx,ts,tsx}",
     "./components/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
-  presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
@@ -18,45 +16,34 @@ module.exports = {
           100: "#FFEFD1",
           200: "#FFDD9F",
           300: "#FFCB6D",
-          400: "#FFB84D", // Primary gold
-          500: "#F5A623", // Hover state
-          600: "#D4920A", // Muted/Disabled
-          700: "#A67308",
-          800: "#785306",
-          900: "#2E1065", // Subtle background
+          400: "#FFB84D",
+          500: "#E5A545",
+          600: "#CC923D",
         },
-        // Dark mode backgrounds
+        // Backgrounds
         background: {
-          DEFAULT: "#0A0A0A",
-          black: "#000000", // OLED black
-          base: "#0A0A0A", // Primary background
-          elevated: "#141414", // Cards, modals
-          subtle: "#1C1C1E", // Input fields
-          hover: "#262626", // Interactive states
+          base: "#0D0D0F",
+          elevated: "#1A1A1E",
+          surface: "#2A2A2E",
         },
-        // Text colors
+        // Text
         text: {
           primary: "#FFFFFF",
-          secondary: "#A1A1AA",
-          muted: "#52525B",
+          secondary: "#A0A0A8",
+          muted: "#6B6B73",
         },
-        // Semantic colors
-        success: "#22C55E",
-        error: "#EF4444",
-        warning: "#F59E0B",
-      },
-      fontFamily: {
-        sans: ["SpaceGrotesk", "system-ui", "sans-serif"],
-        mono: ["JetBrainsMono", "monospace"],
+        // Status
+        success: "#4ADE80",
+        error: "#F87171",
+        warning: "#FBBF24",
       },
       fontSize: {
-        display: ["48px", { lineHeight: "56px", fontWeight: "700" }],
-        h1: ["32px", { lineHeight: "40px", fontWeight: "600" }],
+        h1: ["32px", { lineHeight: "40px", fontWeight: "700" }],
         h2: ["24px", { lineHeight: "32px", fontWeight: "600" }],
-        h3: ["20px", { lineHeight: "28px", fontWeight: "500" }],
+        h3: ["20px", { lineHeight: "28px", fontWeight: "600" }],
         body: ["16px", { lineHeight: "24px", fontWeight: "400" }],
         caption: ["14px", { lineHeight: "20px", fontWeight: "400" }],
-        micro: ["12px", { lineHeight: "16px", fontWeight: "500" }],
+        small: ["12px", { lineHeight: "16px", fontWeight: "400" }],
       },
     },
   },
