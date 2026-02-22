@@ -22,6 +22,7 @@ import {
 } from "../services/pairing";
 import { saveLinkedWallet } from "../services/wallet-storage";
 import { saveCredentialId } from "../services/credential";
+import { addPairedAgent } from "../services/agent-storage";
 
 // =============================================================================
 // Types
@@ -695,11 +696,20 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
               try {
                 const pairedAgents = await getPairedAgents(pairingDetails.walletPubkey);
                 if (pairedAgents && pairedAgents.length > 0) {
+                  // Save to AsyncStorage (agent-storage) for persistence
+                  for (const pa of pairedAgents) {
+                    await addPairedAgent({
+                      agentId: pa.agentId,
+                      agentName: pa.agentName,
+                      pairedAt: pa.pairedAt,
+                    });
+                  }
+                  // Also update zustand store for immediate UI
                   const agents: Agent[] = pairedAgents.map((pa) => ({
                     id: pa.agentId,
                     name: pa.agentName,
                     pairedAt: new Date(pa.pairedAt),
-                    hasActiveSession: false, // Will be updated by session sync
+                    hasActiveSession: false,
                   }));
                   setAgents(agents);
                   console.log(`✅ Synced ${agents.length} paired agent(s)`);
