@@ -305,15 +305,33 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
       const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes));
       
       // 4. Call Passkey.get with hashed challenge
-      const result = await Passkey.get({
-        rpId: approvalData.rpId,
-        challenge: challengeHashBase64,
-        allowCredentials: approvalData.credentialId ? [{
-          id: approvalData.credentialId,
-          type: 'public-key' as const,
-        }] : undefined,
-        userVerification: 'required',
-      });
+      // Try with allowCredentials first, fall back to discoverable if credential not found
+      let result;
+      try {
+        result = await Passkey.get({
+          rpId: approvalData.rpId,
+          challenge: challengeHashBase64,
+          allowCredentials: approvalData.credentialId ? [{
+            id: approvalData.credentialId,
+            type: 'public-key' as const,
+          }] : undefined,
+          userVerification: 'required',
+        });
+      } catch (passkeyError: any) {
+        // If credential not found, retry with discoverable flow (no allowCredentials)
+        if (passkeyError.message?.includes('No viable credential') || 
+            passkeyError.message?.includes('NotAllowed') ||
+            passkeyError.code === 'ERR_NO_CREDENTIAL') {
+          console.log('Credential not found on device, trying discoverable flow');
+          result = await Passkey.get({
+            rpId: approvalData.rpId,
+            challenge: challengeHashBase64,
+            userVerification: 'required',
+          });
+        } else {
+          throw passkeyError;
+        }
+      }
       
       // 5. Extract WebAuthn response fields (already base64 from react-native-passkey)
       const signature = result.response.signature;
