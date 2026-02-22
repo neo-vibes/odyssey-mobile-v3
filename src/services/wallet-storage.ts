@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WALLET_KEY = 'odyssey_linked_wallet';
 
@@ -10,19 +10,19 @@ export interface LinkedWallet {
 }
 
 /**
- * Save linked wallet to secure storage
+ * Save linked wallet to storage
  */
 export async function saveLinkedWallet(wallet: LinkedWallet): Promise<void> {
   const json = JSON.stringify(wallet);
-  await SecureStore.setItemAsync(WALLET_KEY, json);
+  await AsyncStorage.setItem(WALLET_KEY, json);
 }
 
 /**
- * Get linked wallet from secure storage
+ * Get linked wallet from storage
  * @returns LinkedWallet or null if not found
  */
 export async function getLinkedWallet(): Promise<LinkedWallet | null> {
-  const json = await SecureStore.getItemAsync(WALLET_KEY);
+  const json = await AsyncStorage.getItem(WALLET_KEY);
   if (!json) {
     return null;
   }
@@ -30,8 +30,8 @@ export async function getLinkedWallet(): Promise<LinkedWallet | null> {
 }
 
 /**
- * Clear linked wallet from secure storage
+ * Clear linked wallet from storage
  */
 export async function clearLinkedWallet(): Promise<void> {
-  await SecureStore.deleteItemAsync(WALLET_KEY);
+  await AsyncStorage.removeItem(WALLET_KEY);
 }
