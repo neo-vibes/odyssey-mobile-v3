@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { WalletScreenProps } from "../../navigation/types";
 import { useWalletStore } from "../../stores/useWalletStore";
 
@@ -32,7 +33,7 @@ function formatUsd(amount: number): string {
 }
 
 export function WalletScreen({ navigation }: WalletScreenProps) {
-  const { address, balanceSol, balanceUsd } = useWalletStore();
+  const { address, balanceSol, balanceUsd, reset } = useWalletStore();
 
   const handleCopyAddress = useCallback(async () => {
     if (!address) return;
@@ -43,6 +44,28 @@ export function WalletScreen({ navigation }: WalletScreenProps) {
       Alert.alert("Error", "Failed to copy address");
     }
   }, [address]);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert(
+      "Logout",
+      "This will clear all local data and return to onboarding.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              reset();
+            } catch (e) {
+              console.error("Logout error:", e);
+            }
+          },
+        },
+      ]
+    );
+  }, [reset]);
 
   const displayAddress = address || "Not connected";
   const truncatedAddress = address ? truncateAddress(address) : "---";
@@ -98,6 +121,16 @@ export function WalletScreen({ navigation }: WalletScreenProps) {
           className="flex-1 bg-[#FFB84D] py-4 rounded-xl items-center active:opacity-80"
         >
           <Text className="text-black text-base font-semibold">📤 Send</Text>
+        </Pressable>
+      </View>
+
+      {/* Logout Button */}
+      <View className="mt-auto pb-8">
+        <Pressable
+          onPress={handleLogout}
+          className="py-3 items-center"
+        >
+          <Text className="text-red-500 text-sm">Logout</Text>
         </Pressable>
       </View>
     </View>
