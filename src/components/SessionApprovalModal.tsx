@@ -55,10 +55,11 @@ function formatDuration(seconds: number): string {
  */
 function getSpendingLimit(session: PendingSession): string {
   // Use limits array if available (V3 format)
+  // Note: limits[].amount is already human-readable (e.g., 0.01 SOL), not base units
   if (session.limits && session.limits.length > 0) {
     const limit = session.limits[0];
     const symbol = limit.mint === 'native' ? 'SOL' : (limit.symbol || 'tokens');
-    return formatAmount(limit.amount, limit.decimals, symbol);
+    return `${limit.amount} ${symbol}`;
   }
   
   // Fallback to legacy fields
