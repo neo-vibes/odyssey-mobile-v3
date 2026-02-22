@@ -12,10 +12,12 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Passkey } from "react-native-passkey";
 import { useWalletStore } from "../stores/useWalletStore";
+import { useAgentsStore, type Agent } from "../stores/useAgentsStore";
 import {
   getPairingDetails,
   registerDevice,
   pollApprovalStatus,
+  getPairedAgents,
   type PairingDetails,
 } from "../services/pairing";
 import { saveLinkedWallet } from "../services/wallet-storage";
@@ -480,6 +482,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
   const { setAddress, setTelegramId, setIsLinked } = useWalletStore();
+  const { setAgents } = useAgentsStore();
 
   // Refs for cleanup
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -686,7 +689,29 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
               setTelegramId(pairingDetails.telegramId);
               setIsLinked(true);
 
-              console.log("✅ Wallet saved, navigating to main screen");
+              console.log("✅ Wallet saved, syncing paired agents...");
+
+              // Sync paired agents from server
+              try {
+                const pairedAgents = await getPairedAgents(pairingDetails.walletPubkey);
+                if (pairedAgents && pairedAgents.length > 0) {
+                  const agents: Agent[] = pairedAgents.map((pa) => ({
+                    id: pa.agentId,
+                    name: pa.agentName,
+                    pairedAt: new Date(pa.pairedAt),
+                    hasActiveSession: false, // Will be updated by session sync
+                  }));
+                  setAgents(agents);
+                  console.log(`✅ Synced ${agents.length} paired agent(s)`);
+                } else {
+                  console.log("ℹ️ No paired agents found");
+                }
+              } catch (syncError) {
+                // Don't block login on sync failure - just log warning
+                console.warn("⚠️ Failed to sync paired agents:", syncError);
+              }
+
+              console.log("✅ Navigating to main screen");
 
               // Navigate to main screen
               onLinkComplete?.();
@@ -719,7 +744,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
         pollIntervalRef.current = setInterval(checkStatus, POLL_INTERVAL_MS);
       });
     },
-    [setAddress, setTelegramId, setIsLinked, onLinkComplete]
+    [setAddress, setTelegramId, setIsLinked, setAgents, onLinkComplete]
   );
 
   const handleLogoTap = useCallback(() => {

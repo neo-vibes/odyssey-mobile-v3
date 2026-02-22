@@ -56,6 +56,12 @@ export interface ApprovalResponse {
   agentName: string;
 }
 
+export interface PairedAgent {
+  agentId: string;
+  agentName: string;
+  pairedAt: string;
+}
+
 // =============================================================================
 // URL Parsing
 // =============================================================================
@@ -200,6 +206,36 @@ export async function pollApprovalStatus(requestId: string): Promise<ApprovalSta
 // =============================================================================
 
 /**
+ * Get all agents paired with this wallet
+ * Returns list of paired agents for display in the app
+ */
+export async function getPairedAgents(walletPubkey: string): Promise<PairedAgent[]> {
+  const response = await fetch(`${API_URL}/api/agents/paired?walletPubkey=${encodeURIComponent(walletPubkey)}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    let message = 'Failed to get paired agents';
+    
+    try {
+      const parsed = JSON.parse(errorBody);
+      message = parsed.message || parsed.error || message;
+    } catch {
+      if (errorBody) message = errorBody;
+    }
+    
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+  return data as PairedAgent[];
+}
+
+/**
  * Check the status of an agent pairing code
  * Used to see if an agent has requested pairing with this code
  */
@@ -303,6 +339,7 @@ export const pairing = {
   getPairingDetails,
   registerDevice,
   pollApprovalStatus,
+  getPairedAgents,
   checkCodeStatus,
   approveAgentPairing,
   denyAgentPairing,

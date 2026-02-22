@@ -1,0 +1,55 @@
+{
+  "project": "sync-agents-on-login",
+  "spec": "sync-agents-on-login.md",
+  "tasks": [
+    {
+      "id": "api-get-paired-agents",
+      "name": "API: Get Paired Agents Endpoint",
+      "deps": [],
+      "prompt": "Add GET /api/agents/paired endpoint to packages/api/src/index.ts. Query param: walletPubkey (required). Returns array of agents paired with this wallet from the pairings store. Each agent includes: agentId, agentName, pairedAt. Response format: { agents: [...] }. Return empty array if no pairings.",
+      "acceptance": [
+        "Endpoint exists at GET /api/agents/paired?walletPubkey=X",
+        "Returns { agents: [...] } with paired agents",
+        "Each agent has: agentId, agentName, pairedAt",
+        "Returns { agents: [] } if no pairings",
+        "Returns 400 if walletPubkey missing",
+        "curl test: curl -s 'localhost:3001/api/agents/paired?walletPubkey=TEST' returns valid JSON"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "mobile-agents-service",
+      "name": "Mobile: Add getPairedAgents to Service",
+      "deps": [],
+      "prompt": "Add function getPairedAgents(walletPubkey: string) to src/services/pairing.ts (or create if doesn't exist). Calls GET /api/agents/paired?walletPubkey=X. Returns array of PairedAgent objects: { agentId: string, agentName: string, pairedAt: string }. Add the PairedAgent type.",
+      "acceptance": [
+        "getPairedAgents function exists",
+        "Calls correct API endpoint",
+        "Returns typed PairedAgent[]",
+        "PairedAgent type exported",
+        "TypeScript compiles"
+      ],
+      "estimatedIterations": 4
+    },
+    {
+      "id": "mobile-sync-on-link",
+      "name": "Mobile: Sync Agents After Wallet Link",
+      "deps": ["mobile-agents-service"],
+      "prompt": "In src/screens/OnboardingScreen.tsx, after successful wallet link (Passkey.create succeeds and wallet is saved), call getPairedAgents(walletPubkey) to fetch existing pairings. For each agent returned, save to the agents store (useAgentsStore or similar). Check how agents are currently stored and use the same mechanism. This should happen before navigating to main app.",
+      "acceptance": [
+        "After wallet link success, calls getPairedAgents",
+        "Fetched agents saved to local store",
+        "Uses existing agent storage mechanism",
+        "Handles empty response gracefully",
+        "Handles API errors gracefully (don't block login)",
+        "TypeScript compiles"
+      ],
+      "estimatedIterations": 8
+    }
+  ],
+  "mergeOrder": [
+    "api-get-paired-agents",
+    "mobile-agents-service",
+    "mobile-sync-on-link"
+  ]
+}
