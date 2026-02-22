@@ -1,4 +1,4 @@
-// NativeWind v2 - no CSS import needed
+import "./global.css";
 import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
