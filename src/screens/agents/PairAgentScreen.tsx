@@ -141,19 +141,23 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
       });
       
       // Call API to approve
+      console.log('📤 Calling approveAgentPairing API...');
       await approveAgentPairing({
         requestId: incomingRequest.requestId,
         signature: result.response.signature,
         authenticatorData: result.response.authenticatorData,
         clientDataJSON: result.response.clientDataJSON,
       });
+      console.log('✅ API approval succeeded');
       
       // Save agent locally
+      console.log('💾 Saving agent locally:', incomingRequest.agentId, incomingRequest.agentName);
       await addPairedAgent({
         agentId: incomingRequest.agentId,
         agentName: incomingRequest.agentName,
         pairedAt: new Date().toISOString(),
       });
+      console.log('✅ Agent saved to local storage');
       
       // Success!
       setApprovalSuccess(incomingRequest.agentName);
