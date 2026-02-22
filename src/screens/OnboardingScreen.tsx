@@ -19,6 +19,7 @@ import {
   type PairingDetails,
 } from "../services/pairing";
 import { saveLinkedWallet } from "../services/wallet-storage";
+import { saveCredentialId } from "../services/credential";
 
 // =============================================================================
 // Types
@@ -412,6 +413,17 @@ async function createPasskey(walletPubkey: string): Promise<PasskeyCredential> {
       
       console.log("🔐 Creating real passkey...");
       const result = await Passkey.create(request);
+      
+      // Save credential ID locally for future authentication
+      if (result.id) {
+        try {
+          await saveCredentialId(result.id);
+          console.log("💾 Credential ID saved locally");
+        } catch (saveError) {
+          console.warn("⚠️ Failed to save credential ID locally:", saveError);
+          // Non-blocking - wallet creation continues even if save fails
+        }
+      }
       
       const { publicKey, rpIdHash, credentialId } = parseAttestationObject(
         result.response.attestationObject

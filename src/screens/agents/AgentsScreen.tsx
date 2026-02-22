@@ -20,6 +20,7 @@ import {
   approveSession,
   PendingSession,
 } from "../../services/sessions";
+import { getCredentialId, saveCredentialId } from "../../services/credential";
 import { buildSessionChallenge } from "../../utils/sessionChallenge";
 import { SessionApprovalModal } from "../../components/SessionApprovalModal";
 import type { AgentsScreenProps } from "../../navigation/types";
@@ -293,26 +294,29 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     
     setModalLoading(true);
     try {
-      // 1. Get approval data (includes currentSlot, expiresAtSlot, credentialId)
+      // 1. Get local credential ID from storage
+      const localCredentialId = await getCredentialId();
+      
+      // 2. Get approval data (includes currentSlot, expiresAtSlot)
       const approvalData = await getSessionApprovalData(pendingSession.requestId);
       
-      // 2. Build 89-byte challenge
+      // 3. Build 89-byte challenge
       const challengeData = buildSessionChallenge(approvalData);
       
-      // 3. Hash challenge with SHA-256 for WebAuthn
+      // 4. Hash challenge with SHA-256 for WebAuthn
       const hashArrayBuffer = sha256.arrayBuffer(challengeData);
       const hashBytes = new Uint8Array(hashArrayBuffer);
       const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes));
       
-      // 4. Call Passkey.get with hashed challenge
-      // Try with allowCredentials first, fall back to discoverable if credential not found
+      // 5. Call Passkey.get with hashed challenge
+      // Try with allowCredentials first (using local credential), fall back to discoverable if credential not found
       let result;
       try {
         result = await Passkey.get({
           rpId: approvalData.rpId,
           challenge: challengeHashBase64,
-          allowCredentials: approvalData.credentialId ? [{
-            id: approvalData.credentialId,
+          allowCredentials: localCredentialId ? [{
+            id: localCredentialId,
             type: 'public-key' as const,
           }] : undefined,
           userVerification: 'required',
@@ -333,12 +337,23 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
         }
       }
       
-      // 5. Extract WebAuthn response fields (already base64 from react-native-passkey)
+      // 5b. Save credential if we didn't have one stored locally
+      if (!localCredentialId && result.id) {
+        try {
+          await saveCredentialId(result.id);
+          console.log('Saved credential ID for future use');
+        } catch (saveError) {
+          // Don't block approval if save fails
+          console.warn('Failed to save credential ID:', saveError);
+        }
+      }
+      
+      // 6. Extract WebAuthn response fields (already base64 from react-native-passkey)
       const signature = result.response.signature;
       const authenticatorData = result.response.authenticatorData;
       const clientDataJSON = result.response.clientDataJSON;
       
-      // 6. Call approve API with WebAuthn signature
+      // 7. Call approve API with WebAuthn signature
       await approveSession({
         requestId: pendingSession.requestId,
         walletPubkey: approvalData.walletPubkey,
@@ -350,7 +365,7 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
         clientDataJSON,
       });
       
-      // 7. Success - close modal and show toast
+      // 8. Success - close modal and show toast
       setModalVisible(false);
       setPendingSession(null);
       Alert.alert('Session Approved', 'Agent can now execute transactions');

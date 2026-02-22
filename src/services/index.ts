@@ -81,3 +81,10 @@ export type {
   ApproveSessionResponse,
   DenySessionResponse,
 } from './sessions';
+
+// Credential storage
+export {
+  saveCredentialId,
+  getCredentialId,
+  clearCredentialId,
+} from './credential';
