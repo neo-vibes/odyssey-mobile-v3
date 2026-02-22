@@ -232,7 +232,7 @@ export async function getPairedAgents(walletPubkey: string): Promise<PairedAgent
   }
 
   const data = await response.json();
-  return data as PairedAgent[];
+  return (data.agents || []) as PairedAgent[];
 }
 
 /**
