@@ -99,7 +99,8 @@ export async function getPendingSessions(walletPubkey: string): Promise<PendingS
   }
 
   const data = await response.json();
-  return data.sessions as PendingSession[];
+  // API returns array directly, not wrapped
+  return (Array.isArray(data) ? data : data.sessions || []) as PendingSession[];
 }
 
 /**
