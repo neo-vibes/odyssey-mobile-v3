@@ -39,6 +39,8 @@ export interface CodeStatus {
   agentId?: string;
   agentName?: string;
   requestedAt?: string;
+  signature?: string;   // Ed25519 signature proving agent identity
+  timestamp?: number;   // Timestamp when signature was created
 }
 
 export interface ApproveParams {

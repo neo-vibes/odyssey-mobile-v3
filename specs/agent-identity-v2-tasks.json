@@ -1,0 +1,124 @@
+{
+  "project": "agent-identity-v2",
+  "spec": "specs/agent-identity-v2.md",
+  "tasks": [
+    {
+      "id": "api-signature-verify",
+      "name": "API: Ed25519 Signature Verification",
+      "deps": [],
+      "prompt": "Update the API pairing endpoint to verify Ed25519 signatures where agentId IS the public key.\n\nFile: ~/agentic-wallet/packages/api/src/index.ts\n\nChanges:\n1. In POST /api/pairing/request, treat agentId as base64-encoded 32-byte Ed25519 public key\n2. Require signature and timestamp fields\n3. Verify message format: `{code}:{agentId}:{timestamp}`\n4. Use Node.js crypto.verify() with Ed25519\n5. Reject if signature invalid (401)\n6. Reject if timestamp > 5 minutes old (400)\n7. Remove TOFU agentIdentityStore logic (no longer needed)\n\nThe existing verifyAgentSignature() function should work - just pass agentId as the pubkey.\n\nTest with curl after changes.",
+      "acceptance": [
+        "POST /api/pairing/request accepts agentId as base64 pubkey",
+        "Signature verified against agentId directly",
+        "Invalid signature returns 401",
+        "Expired timestamp (>5 min) returns 400",
+        "Build passes: cd ~/agentic-wallet/packages/api && npm run build",
+        "Service restarts: sudo systemctl restart odyssey-api"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "api-remove-tofu",
+      "name": "API: Remove TOFU Registry",
+      "deps": ["api-signature-verify"],
+      "prompt": "Remove the server-side agent identity registry since agentId=pubkey eliminates the need for TOFU.\n\nFile: ~/agentic-wallet/packages/api/src/index.ts\n\nRemove:\n1. AGENT_IDENTITIES_FILE constant\n2. loadAgentIdentities() function\n3. saveAgentIdentities() function\n4. agentIdentityStore Map\n5. All references to agentIdentityStore in pairing endpoint\n\nThe signature verification now uses agentId directly as the pubkey - no mapping needed.\n\nAlso delete the data file if it exists:\n- rm -f ~/agentic-wallet/packages/api/data/agent-identities.json",
+      "acceptance": [
+        "No agentIdentityStore in code",
+        "No AGENT_IDENTITIES_FILE in code", 
+        "Build passes: npm run build",
+        "API starts without errors"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "api-session-signature",
+      "name": "API: Session Request Signature Verification",
+      "deps": ["api-signature-verify"],
+      "prompt": "Update POST /api/request-session to verify agent signatures.\n\nFile: ~/agentic-wallet/packages/api/src/index.ts\n\nFind the session request endpoint and add:\n1. Accept agentId as base64 pubkey\n2. Require timestamp and signature fields\n3. Verify signature: `session:{agentId}:{walletPubkey}:{timestamp}`\n4. Reject invalid signatures\n\nThis ensures agents must sign session requests too, not just pairing.",
+      "acceptance": [
+        "POST /api/request-session accepts agentId as pubkey",
+        "Requires signature and timestamp",
+        "Verifies signature against agentId",
+        "Invalid signature returns 401",
+        "Build passes"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "mobile-ed25519-lib",
+      "name": "Mobile: Add Ed25519 Library",
+      "deps": [],
+      "prompt": "Add Ed25519 signature verification to the mobile app.\n\nDirectory: ~/odyssey-mobile-v3\n\nSteps:\n1. Install tweetnacl (works in React Native): npx expo install tweetnacl\n2. Create src/utils/ed25519.ts with:\n   - verifySignature(message: string, signature: string, pubkey: string): boolean\n   - Input/output all base64 encoded\n3. Export from utils/index.ts\n\nUse tweetnacl.sign.detached.verify() for verification.",
+      "acceptance": [
+        "tweetnacl installed in package.json",
+        "src/utils/ed25519.ts exports verifySignature()",
+        "Function accepts base64 strings",
+        "TypeScript compiles without errors"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-agent-storage",
+      "name": "Mobile: Local Agent Storage",
+      "deps": ["mobile-ed25519-lib"],
+      "prompt": "Create local storage service for paired agents.\n\nFile: ~/odyssey-mobile-v3/src/services/agent-storage.ts\n\nImplement:\n```typescript\ninterface PairedAgent {\n  agentId: string;    // base64 pubkey\n  agentName: string;  // display name\n  pairedAt: string;   // ISO date\n}\n\n// AsyncStorage key: 'odyssey_paired_agents'\nexport async function getPairedAgents(): Promise<PairedAgent[]>\nexport async function addPairedAgent(agent: PairedAgent): Promise<void>\nexport async function removePairedAgent(agentId: string): Promise<void>\nexport async function isPaired(agentId: string): Promise<boolean>\n```\n\nUse @react-native-async-storage/async-storage (already installed).",
+      "acceptance": [
+        "src/services/agent-storage.ts created",
+        "All 4 functions implemented",
+        "Uses AsyncStorage with key 'odyssey_paired_agents'",
+        "TypeScript compiles"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-agents-screen",
+      "name": "Mobile: Update Agents Screen",
+      "deps": ["mobile-agent-storage"],
+      "prompt": "Update AgentsScreen to load agents from local storage instead of API.\n\nFile: ~/odyssey-mobile-v3/src/screens/agents/AgentsScreen.tsx\n\nChanges:\n1. Import getPairedAgents from agent-storage\n2. Replace API call in fetchAgents() with getPairedAgents()\n3. Map to existing Agent type\n4. Keep pull-to-refresh (just reloads from local)\n5. Remove pendingPairingRequests logic (we handle differently now)\n\nThe agents list is now fully local. No API call needed.",
+      "acceptance": [
+        "AgentsScreen imports from agent-storage",
+        "fetchAgents() uses getPairedAgents()",
+        "No API call for agents list",
+        "Pull-to-refresh works",
+        "Metro bundler shows no errors"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "mobile-pairing-save",
+      "name": "Mobile: Save Agent After Pairing",
+      "deps": ["mobile-agent-storage"],
+      "prompt": "Update PairAgentScreen to save agent locally after successful approval.\n\nFile: ~/odyssey-mobile-v3/src/screens/agents/PairAgentScreen.tsx\n\nIn handleApprove() after successful API call:\n1. Import addPairedAgent from agent-storage\n2. After approval succeeds, call:\n   addPairedAgent({\n     agentId: incomingRequest.agentId,  // this is now the pubkey\n     agentName: incomingRequest.agentName,\n     pairedAt: new Date().toISOString()\n   })\n3. The agentId from the API response should already be the pubkey format\n\nAlso remove the debug Alert.alert() calls we added earlier.",
+      "acceptance": [
+        "addPairedAgent called after successful approval",
+        "Agent stored in AsyncStorage",
+        "Debug alerts removed",
+        "Success state shows correctly"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-verify-requests",
+      "name": "Mobile: Verify Incoming Request Signatures",
+      "deps": ["mobile-ed25519-lib", "mobile-agent-storage"],
+      "prompt": "Add signature verification for incoming agent requests on mobile.\n\nFile: ~/odyssey-mobile-v3/src/screens/agents/PairAgentScreen.tsx\n\nIn the polling logic when status is 'pending_approval':\n1. The API response should include: agentId (pubkey), agentName, signature, timestamp\n2. Verify signature locally using verifySignature() from utils/ed25519\n3. Message format: `{code}:{agentId}:{timestamp}`\n4. If signature invalid, ignore the request (don't show modal)\n5. If valid, show approval modal\n\nThis adds client-side verification as defense in depth.",
+      "acceptance": [
+        "verifySignature imported from utils/ed25519",
+        "Signature verified before showing modal",
+        "Invalid signatures silently ignored",
+        "Valid signatures show modal"
+      ],
+      "estimatedIterations": 8
+    }
+  ],
+  "mergeOrder": [
+    "api-signature-verify",
+    "api-remove-tofu", 
+    "api-session-signature",
+    "mobile-ed25519-lib",
+    "mobile-agent-storage",
+    "mobile-agents-screen",
+    "mobile-pairing-save",
+    "mobile-verify-requests"
+  ]
+}

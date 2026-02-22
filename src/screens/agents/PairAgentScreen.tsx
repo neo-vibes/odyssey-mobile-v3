@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Passkey } from "react-native-passkey";
 import type { PairAgentScreenProps } from "../../navigation/types";
 import { generatePairingCode } from "../../services/api";
 import { checkCodeStatus, approveAgentPairing, denyAgentPairing } from "../../services/pairing";
 import { useWalletStore } from "../../stores/useWalletStore";
+import { addPairedAgent } from "../../services/agent-storage";
 import { AgentApprovalModal } from "../../components/AgentApprovalModal";
+import { verifyAgentSignature } from "../../utils/ed25519";
 
 interface PairingCodeState {
   code: string;
@@ -20,7 +22,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [copied, setCopied] = useState<"code" | "instructions" | null>(null);
-  const [incomingRequest, setIncomingRequest] = useState<{requestId: string, agentName: string} | null>(null);
+  const [incomingRequest, setIncomingRequest] = useState<{requestId: string, agentId: string, agentName: string} | null>(null);
   const [approving, setApproving] = useState(false);
   const [approvalSuccess, setApprovalSuccess] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,18 +88,31 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   // Poll for incoming agent pairing requests
   useEffect(() => {
     if (!pairingCode) return;
-    
-    // DEBUG: Show alert when polling starts
-    Alert.alert('Polling Started', `Code: ${pairingCode.code}\nWill check every 2s for agent requests`);
 
     const interval = setInterval(async () => {
       try {
         const status = await checkCodeStatus(pairingCode.code);
-        console.log('📊 Poll result:', status.status);
         console.log('📊 Code status:', status.status);
-        if (status.status === 'pending_approval' && status.requestId && status.agentName) {
-          Alert.alert('Agent Found!', `${status.agentName} wants to pair`);
-          setIncomingRequest({ requestId: status.requestId, agentName: status.agentName });
+        if (status.status === 'pending_approval' && status.requestId && status.agentId && status.agentName) {
+          // Verify agent signature before showing approval modal (defense in depth)
+          if (status.signature && status.timestamp) {
+            const message = `${pairingCode.code}:${status.agentId}:${status.timestamp}`;
+            const isValid = verifyAgentSignature(message, status.signature, status.agentId);
+            
+            if (!isValid) {
+              console.warn('⚠️ Invalid agent signature - ignoring pairing request', {
+                agentId: status.agentId,
+                agentName: status.agentName,
+              });
+              return; // Don't show modal for invalid signatures
+            }
+            console.log('✅ Agent signature verified:', status.agentName);
+          } else {
+            // If signature/timestamp missing, log warning but still allow (backwards compatibility)
+            console.warn('⚠️ Pairing request missing signature/timestamp - proceeding without verification');
+          }
+          
+          setIncomingRequest({ requestId: status.requestId, agentId: status.agentId, agentName: status.agentName });
           clearInterval(interval);
         }
       } catch (err) {
@@ -131,6 +146,13 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
         signature: result.response.signature,
         authenticatorData: result.response.authenticatorData,
         clientDataJSON: result.response.clientDataJSON,
+      });
+      
+      // Save agent locally
+      await addPairedAgent({
+        agentId: incomingRequest.agentId,
+        agentName: incomingRequest.agentName,
+        pairedAt: new Date().toISOString(),
       });
       
       // Success!

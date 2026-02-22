@@ -8,7 +8,8 @@ import {
 } from "react-native";
 import { useAgentsStore, useSessionsStore } from "../../stores";
 import { useWalletStore } from "../../stores/useWalletStore";
-import { getAgents, getSessionRequests } from "../../services/api";
+import { getSessionRequests } from "../../services/api";
+import { getPairedAgents } from "../../services/agent-storage";
 import type { AgentsScreenProps } from "../../navigation/types";
 import type { PairingRequest, Agent } from "../../stores";
 import type { SessionRequest } from "../../stores";
@@ -270,33 +271,31 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
   );
 
   const fetchAgents = useCallback(async () => {
-    if (!walletAddress) return;
+    // Load paired agents from local storage (no wallet required)
+    const pairedAgents = await getPairedAgents();
+    const mappedAgents: Agent[] = pairedAgents.map((a) => ({
+      id: a.agentId,
+      name: a.agentName,
+      pairedAt: new Date(a.pairedAt),
+      hasActiveSession: false,
+    }));
+    setAgents(mappedAgents);
     
-    // Fetch paired agents
-    const agentsResponse = await getAgents(walletAddress);
-    if (agentsResponse.ok && agentsResponse.data) {
-      const mappedAgents: Agent[] = agentsResponse.data.agents.map((a: any) => ({
-        id: a.agentId,
-        name: a.agentName,
-        pairedAt: new Date(a.pairedAt),
-        hasActiveSession: false,
-      }));
-      setAgents(mappedAgents);
-    }
-    
-    // Fetch pending session requests
-    const sessionsResponse = await getSessionRequests(walletAddress);
-    if (sessionsResponse.ok && sessionsResponse.data) {
-      const mappedRequests = sessionsResponse.data.requests.map((r: any) => ({
-        id: r.id,
-        agentId: r.agentId || r.sessionPubkey,
-        agentName: r.agentName,
-        requestedAt: new Date(r.createdAt),
-        expiresAt: new Date(Date.now() + (r.durationSeconds || 3600) * 1000),
-        durationSeconds: r.durationSeconds,
-        maxAmountSol: r.limits?.[0]?.amount || r.maxAmount || 0,
-      }));
-      setPendingSessionRequests(mappedRequests);
+    // Fetch pending session requests from API (requires wallet)
+    if (walletAddress) {
+      const sessionsResponse = await getSessionRequests(walletAddress);
+      if (sessionsResponse.ok && sessionsResponse.data) {
+        const mappedRequests = sessionsResponse.data.requests.map((r: any) => ({
+          id: r.id,
+          agentId: r.agentId || r.sessionPubkey,
+          agentName: r.agentName,
+          requestedAt: new Date(r.createdAt),
+          expiresAt: new Date(Date.now() + (r.durationSeconds || 3600) * 1000),
+          durationSeconds: r.durationSeconds,
+          maxAmountSol: r.limits?.[0]?.amount || r.maxAmount || 0,
+        }));
+        setPendingSessionRequests(mappedRequests);
+      }
     }
   }, [walletAddress, setAgents, setPendingSessionRequests]);
 
