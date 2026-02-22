@@ -691,10 +691,12 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
               setIsLinked(true);
 
               console.log("✅ Wallet saved, syncing paired agents...");
+              console.log("📍 Wallet pubkey for sync:", pairingDetails.walletPubkey);
 
               // Sync paired agents from server
               try {
                 const pairedAgents = await getPairedAgents(pairingDetails.walletPubkey);
+                console.log("📍 API returned agents:", JSON.stringify(pairedAgents));
                 if (pairedAgents && pairedAgents.length > 0) {
                   // Save to AsyncStorage (agent-storage) for persistence
                   for (const pa of pairedAgents) {
