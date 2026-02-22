@@ -21,7 +21,7 @@ import {
   type PairingDetails,
 } from "../services/pairing";
 import { saveLinkedWallet } from "../services/wallet-storage";
-import { saveCredentialId } from "../services/credential";
+import { saveCredentialId, savePublicKey, saveRpIdHash } from "../services/credential";
 import { addPairedAgent } from "../services/agent-storage";
 
 // =============================================================================
@@ -432,11 +432,22 @@ async function createPasskey(walletPubkey: string): Promise<PasskeyCredential> {
         result.response.attestationObject
       );
       
+      // Save publicKey and rpIdHash for session approvals
+      const publicKeyB64 = uint8ArrayToBase64(publicKey);
+      const rpIdHashB64 = uint8ArrayToBase64(rpIdHash);
+      try {
+        await savePublicKey(publicKeyB64);
+        await saveRpIdHash(rpIdHashB64);
+        console.log("💾 PublicKey and rpIdHash saved locally");
+      } catch (saveError) {
+        console.warn("⚠️ Failed to save publicKey/rpIdHash:", saveError);
+      }
+      
       console.log("✅ Real passkey created");
       return {
         credentialId: uint8ArrayToBase64(credentialId),
-        publicKey: uint8ArrayToBase64(publicKey),
-        rpIdHash: uint8ArrayToBase64(rpIdHash),
+        publicKey: publicKeyB64,
+        rpIdHash: rpIdHashB64,
       };
     } catch (error) {
       console.log("⚠️ Real passkey failed, falling back to mock:", error);

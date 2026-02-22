@@ -46,11 +46,18 @@ export interface ApproveSessionParams {
   walletPubkey: string;
   sessionPubkey: string;
   expiresAtSlot: number;
+  currentSlot: number;
+  mint: string;
+  maxAmount: number;
+  rpId: string;
+  rpIdHash: string;
   limits: SessionLimit[];
   // WebAuthn response fields
   signature: string;
   authenticatorData: string;
   clientDataJSON: string;
+  publicKey: string;
+  credentialId?: string;
 }
 
 export interface ApproveSessionResponse {
@@ -182,10 +189,17 @@ export async function approveSession(params: ApproveSessionParams): Promise<Appr
       walletPubkey: params.walletPubkey,
       sessionPubkey: params.sessionPubkey,
       expiresAtSlot: params.expiresAtSlot,
+      currentSlot: params.currentSlot,
+      mint: params.mint,
+      maxAmount: params.maxAmount,
+      rpId: params.rpId,
+      rpIdHash: params.rpIdHash,
       limits: params.limits,
       signature: params.signature,
       authenticatorData: params.authenticatorData,
       clientDataJSON: params.clientDataJSON,
+      publicKey: params.publicKey,
+      credentialId: params.credentialId,
     }),
   });
 

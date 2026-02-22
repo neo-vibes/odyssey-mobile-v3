@@ -20,7 +20,7 @@ import {
   approveSession,
   PendingSession,
 } from "../../services/sessions";
-import { getCredentialId, saveCredentialId } from "../../services/credential";
+import { getCredentialId, saveCredentialId, getPublicKey, getRpIdHash } from "../../services/credential";
 import { buildSessionChallenge } from "../../utils/sessionChallenge";
 import { SessionApprovalModal } from "../../components/SessionApprovalModal";
 import type { AgentsScreenProps } from "../../navigation/types";
@@ -353,16 +353,31 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
       const authenticatorData = result.response.authenticatorData;
       const clientDataJSON = result.response.clientDataJSON;
       
+      // 6b. Get stored publicKey and rpIdHash
+      const publicKey = await getPublicKey();
+      const rpIdHash = await getRpIdHash();
+      
+      if (!publicKey || !rpIdHash) {
+        throw new Error('Missing publicKey or rpIdHash. Please re-link your wallet.');
+      }
+      
       // 7. Call approve API with WebAuthn signature
       await approveSession({
         requestId: pendingSession.requestId,
         walletPubkey: approvalData.walletPubkey,
         sessionPubkey: approvalData.sessionPubkey,
         expiresAtSlot: approvalData.expiresAtSlot,
+        currentSlot: approvalData.currentSlot,
+        mint: approvalData.mint,
+        maxAmount: approvalData.maxAmount,
+        rpId: approvalData.rpId,
+        rpIdHash: rpIdHash,
         limits: pendingSession.limits,
         signature,
         authenticatorData,
         clientDataJSON,
+        publicKey: publicKey,
+        credentialId: localCredentialId || result.id,
       });
       
       // 8. Success - close modal and show toast
