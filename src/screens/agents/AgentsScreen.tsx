@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAgentsStore, useSessionsStore } from "../../stores";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { getSessionRequests } from "../../services/api";
@@ -299,10 +300,12 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     }
   }, [walletAddress, setAgents, setPendingSessionRequests]);
 
-  // Fetch on mount
-  useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
+  // Fetch on mount and when screen gains focus (e.g., after pairing)
+  useFocusEffect(
+    useCallback(() => {
+      fetchAgents();
+    }, [fetchAgents])
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
