@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Passkey } from "react-native-passkey";
 import { useWalletStore } from "../stores/useWalletStore";
 import {
   getPairingDetails,
@@ -165,64 +166,271 @@ function classifyError(error: unknown): ErrorInfo {
 }
 
 // =============================================================================
-// Passkey Helper (placeholder for react-native-passkey)
+// Passkey Helper (using react-native-passkey)
 // =============================================================================
 
 interface PasskeyCredential {
-  credentialId: string;
-  publicKey: string;
+  credentialId: string;  // base64url
+  publicKey: string;     // base64 compressed secp256r1 (33 bytes)
+  rpIdHash: string;      // base64 (32 bytes SHA256 of RP ID)
+}
+
+const RP_ID = "app.getodyssey.xyz";
+const RP_NAME = "Odyssey";
+
+/**
+ * Convert base64url to standard base64
+ */
+function base64urlToBase64(base64url: string): string {
+  return base64url.replace(/-/g, "+").replace(/_/g, "/");
 }
 
 /**
- * Base64 encode a string (React Native compatible)
+ * Convert Uint8Array to base64
  */
-function btoa64(str: string): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  // Use btoa if available, otherwise manual encoding
+  if (typeof btoa !== "undefined") {
+    return btoa(binary);
+  }
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   let result = "";
-  for (let i = 0; i < str.length; i += 3) {
-    const a = str.charCodeAt(i);
-    const b = str.charCodeAt(i + 1) || 0;
-    const c = str.charCodeAt(i + 2) || 0;
+  for (let i = 0; i < binary.length; i += 3) {
+    const a = binary.charCodeAt(i);
+    const b = binary.charCodeAt(i + 1) || 0;
+    const c = binary.charCodeAt(i + 2) || 0;
     result +=
       chars[a >> 2] +
       chars[((a & 3) << 4) | (b >> 4)] +
-      (i + 1 < str.length ? chars[((b & 15) << 2) | (c >> 6)] : "=") +
-      (i + 2 < str.length ? chars[c & 63] : "=");
+      (i + 1 < binary.length ? chars[((b & 15) << 2) | (c >> 6)] : "=") +
+      (i + 2 < binary.length ? chars[c & 63] : "=");
   }
   return result;
 }
 
 /**
+ * Convert base64 string to Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64urlToBase64(base64));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Parse COSE key from attestation to extract compressed secp256r1 public key
+ * COSE key format: https://datatracker.ietf.org/doc/html/rfc8152#section-13.1
+ */
+function extractPublicKeyFromCOSE(coseKey: Uint8Array): Uint8Array {
+  // COSE_Key for EC2 (secp256r1):
+  // Map with: 1: kty=2 (EC2), 3: alg=-7 (ES256), -1: crv=1 (P-256), -2: x (32 bytes), -3: y (32 bytes)
+  // We need to find x and y coordinates and compress them
+  
+  // Simple CBOR parsing for the expected structure
+  // Look for the x coordinate (-2 = 0x21) and y coordinate (-3 = 0x22)
+  let x: Uint8Array | null = null;
+  let y: Uint8Array | null = null;
+  
+  let i = 0;
+  while (i < coseKey.length - 33) {
+    // Look for negative integer -2 (encoded as 0x21 in CBOR)
+    if (coseKey[i] === 0x21) {
+      // Next should be byte string of 32 bytes (0x58 0x20)
+      if (coseKey[i + 1] === 0x58 && coseKey[i + 2] === 0x20) {
+        x = coseKey.slice(i + 3, i + 3 + 32);
+        i += 35;
+        continue;
+      }
+    }
+    // Look for negative integer -3 (encoded as 0x22 in CBOR)
+    if (coseKey[i] === 0x22) {
+      if (coseKey[i + 1] === 0x58 && coseKey[i + 2] === 0x20) {
+        y = coseKey.slice(i + 3, i + 3 + 32);
+        i += 35;
+        continue;
+      }
+    }
+    i++;
+  }
+  
+  if (!x || !y) {
+    throw new Error("Could not extract x,y coordinates from COSE key");
+  }
+  
+  // Compress: 0x02 if y is even, 0x03 if y is odd
+  const prefix = (y[31] & 1) === 0 ? 0x02 : 0x03;
+  const compressed = new Uint8Array(33);
+  compressed[0] = prefix;
+  compressed.set(x, 1);
+  
+  return compressed;
+}
+
+/**
+ * Parse attestation object to extract public key and authenticator data
+ * attestationObject is CBOR encoded with: fmt, attStmt, authData
+ */
+function parseAttestationObject(attestationObjectB64: string): {
+  publicKey: Uint8Array;
+  rpIdHash: Uint8Array;
+  credentialId: Uint8Array;
+} {
+  const data = base64ToUint8Array(attestationObjectB64);
+  
+  // Find authData in the CBOR structure
+  // authData starts after "authData" key in the CBOR map
+  // Structure: rpIdHash (32) + flags (1) + signCount (4) + attestedCredentialData
+  
+  // Simple approach: find the authData by looking for the pattern
+  // authData is typically the largest byte string in the attestation object
+  
+  // Look for byte string marker followed by large length
+  let authDataStart = -1;
+  let authDataLen = 0;
+  
+  for (let i = 0; i < data.length - 50; i++) {
+    // CBOR byte string with 2-byte length: 0x59 followed by 2 bytes of length
+    if (data[i] === 0x59) {
+      const len = (data[i + 1] << 8) | data[i + 2];
+      if (len > 100 && len < 2000) { // authData is typically 100-500 bytes
+        authDataStart = i + 3;
+        authDataLen = len;
+        break;
+      }
+    }
+    // CBOR byte string with 1-byte length: 0x58 followed by 1 byte of length
+    if (data[i] === 0x58) {
+      const len = data[i + 1];
+      if (len > 100) {
+        authDataStart = i + 2;
+        authDataLen = len;
+        break;
+      }
+    }
+  }
+  
+  if (authDataStart === -1) {
+    throw new Error("Could not find authData in attestation object");
+  }
+  
+  const authData = data.slice(authDataStart, authDataStart + authDataLen);
+  
+  // Parse authData:
+  // rpIdHash: 32 bytes
+  // flags: 1 byte
+  // signCount: 4 bytes (big-endian)
+  // attestedCredentialData (if AT flag set):
+  //   aaguid: 16 bytes
+  //   credentialIdLength: 2 bytes (big-endian)
+  //   credentialId: credentialIdLength bytes
+  //   credentialPublicKey: COSE_Key (remaining)
+  
+  const rpIdHash = authData.slice(0, 32);
+  const flags = authData[32];
+  const hasAttestedCredentialData = (flags & 0x40) !== 0;
+  
+  if (!hasAttestedCredentialData) {
+    throw new Error("No attested credential data in authData");
+  }
+  
+  // Skip to attestedCredentialData (after rpIdHash + flags + signCount)
+  let offset = 37; // 32 + 1 + 4
+  
+  // Skip aaguid (16 bytes)
+  offset += 16;
+  
+  // Read credentialIdLength (2 bytes big-endian)
+  const credIdLen = (authData[offset] << 8) | authData[offset + 1];
+  offset += 2;
+  
+  // Read credentialId
+  const credentialId = authData.slice(offset, offset + credIdLen);
+  offset += credIdLen;
+  
+  // Remaining is the COSE public key
+  const coseKey = authData.slice(offset);
+  const publicKey = extractPublicKeyFromCOSE(coseKey);
+  
+  return { publicKey, rpIdHash, credentialId };
+}
+
+/**
+ * Generate a random challenge for passkey creation
+ */
+function generateChallenge(): string {
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return uint8ArrayToBase64(bytes)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+/**
  * Create a passkey using biometric authentication
- * TODO: Replace with actual react-native-passkey implementation when installed:
- *
- * import { Passkey } from 'react-native-passkey';
- *
- * const credential = await Passkey.create({
- *   challenge: base64Challenge,
- *   domain: 'app.getodyssey.xyz',
- *   displayName: 'Odyssey Wallet',
- *   userId: walletPubkey,
- * });
  */
 async function createPasskey(walletPubkey: string): Promise<PasskeyCredential> {
-  // Simulate passkey creation delay (biometric prompt)
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Generate mock credentials for development
-  // In production, these come from the actual passkey API
-  const timestamp = Date.now();
-  const mockCredentialId = btoa64(
-    `odyssey-${walletPubkey.slice(0, 8)}-${timestamp}`
+  // Check if passkeys are supported
+  if (!Passkey.isSupported()) {
+    throw new Error("Passkeys are not supported on this device");
+  }
+  
+  const challenge = generateChallenge();
+  
+  // Create passkey request
+  const request = {
+    challenge,
+    rp: {
+      id: RP_ID,
+      name: RP_NAME,
+    },
+    user: {
+      id: walletPubkey.slice(0, 32), // Use first 32 chars of wallet pubkey as user ID
+      name: `odyssey-${walletPubkey.slice(0, 8)}`,
+      displayName: "Odyssey Wallet",
+    },
+    pubKeyCredParams: [
+      { type: "public-key", alg: -7 }, // ES256 (secp256r1 with SHA-256)
+    ],
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      residentKey: "preferred",
+      userVerification: "required",
+    },
+    attestation: "direct",
+    timeout: 60000,
+  };
+  
+  console.log("🔐 Creating passkey with request:", JSON.stringify(request, null, 2));
+  
+  // Call native passkey API
+  const result = await Passkey.create(request);
+  
+  console.log("✅ Passkey created, rawId:", result.rawId);
+  
+  // Parse the attestation object to extract public key and rpIdHash
+  const { publicKey, rpIdHash, credentialId } = parseAttestationObject(
+    result.response.attestationObject
   );
-  const mockPublicKey = btoa64(
-    `pubkey-${walletPubkey.slice(0, 16)}-${timestamp}`
-  );
-
+  
+  console.log("📦 Extracted credential:");
+  console.log("  - credentialId length:", credentialId.length);
+  console.log("  - publicKey length:", publicKey.length);
+  console.log("  - rpIdHash length:", rpIdHash.length);
+  
   return {
-    credentialId: mockCredentialId,
-    publicKey: mockPublicKey,
+    credentialId: uint8ArrayToBase64(credentialId),
+    publicKey: uint8ArrayToBase64(publicKey),
+    rpIdHash: uint8ArrayToBase64(rpIdHash),
   };
 }
 
@@ -359,6 +567,7 @@ export function OnboardingScreen({ onLinkComplete }: OnboardingScreenProps) {
             deviceName: getDeviceName(),
             publicKey: passkeyCreds.publicKey,
             credentialId: passkeyCreds.credentialId,
+            rpIdHash: passkeyCreds.rpIdHash,
           });
 
           if (isCancelledRef.current) return;

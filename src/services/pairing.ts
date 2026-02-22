@@ -20,6 +20,7 @@ export interface RegisterDeviceParams {
   deviceName: string;
   publicKey: string;   // base64 compressed pubkey from passkey
   credentialId: string; // base64
+  rpIdHash?: string;   // base64 (optional - API derives if not provided)
 }
 
 export interface RegisterDeviceResponse {
@@ -118,6 +119,7 @@ export async function registerDevice(params: RegisterDeviceParams): Promise<Regi
       deviceName: params.deviceName,
       publicKey: params.publicKey,
       credentialId: params.credentialId,
+      rpIdHash: params.rpIdHash,
     }),
   });
 
