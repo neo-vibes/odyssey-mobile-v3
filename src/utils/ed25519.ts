@@ -58,15 +58,15 @@ export function verifySignature(message: string, signature: string, pubkey: stri
 }
 
 /**
- * Verify an Ed25519 signature with UTF-8 message and base58 pubkey.
+ * Verify an Ed25519 signature with UTF-8 message and base64 pubkey.
  * Used for agent identity verification where:
  * - message is a plain UTF-8 string (e.g., "code:agentId:timestamp")
  * - signature is base64 encoded
- * - pubkey is base58 encoded (Solana format)
+ * - pubkey is base64 encoded (agentId = pubkey)
  * 
  * @param message - The message that was signed (UTF-8 string)
  * @param signature - The signature to verify (base64 encoded)
- * @param pubkey - The public key to verify against (base58 encoded)
+ * @param pubkey - The public key to verify against (base64 encoded)
  * @returns true if the signature is valid, false otherwise
  */
 export function verifyAgentSignature(message: string, signature: string, pubkey: string): boolean {
@@ -75,8 +75,8 @@ export function verifyAgentSignature(message: string, signature: string, pubkey:
     const messageBytes = new TextEncoder().encode(message);
     // Decode base64 signature
     const signatureBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
-    // Decode base58 pubkey (Solana format)
-    const pubkeyBytes = base58Decode(pubkey);
+    // Decode base64 pubkey (agentId = base64 pubkey)
+    const pubkeyBytes = Uint8Array.from(atob(pubkey), c => c.charCodeAt(0));
 
     // Verify the detached signature
     return nacl.sign.detached.verify(messageBytes, signatureBytes, pubkeyBytes);
