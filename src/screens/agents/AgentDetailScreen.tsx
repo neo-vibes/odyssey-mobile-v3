@@ -3,6 +3,7 @@ import { View, Text, Pressable, Alert } from "react-native";
 import type { AgentDetailScreenProps } from "../../navigation/types";
 import { useAgentsStore } from "../../stores/useAgentsStore";
 import { useSessionsStore, Session } from "../../stores/useSessionsStore";
+import { removePairedAgent } from "../../services/agent-storage";
 
 const EMPTY_SESSIONS: Session[] = [];
 
@@ -44,7 +45,10 @@ export function AgentDetailScreen({
         {
           text: "Unpair",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            // Remove from AsyncStorage
+            await removePairedAgent(agentId);
+            // Remove from zustand state
             removeAgent(agentId);
             navigation.goBack();
           },
