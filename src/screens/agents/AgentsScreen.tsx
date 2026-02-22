@@ -309,14 +309,17 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
       const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes));
       
       // 5. Call Passkey.get with hashed challenge
-      // Try with allowCredentials first (using local credential), fall back to discoverable if credential not found
+      // Prefer API-provided credentialId (from mobile device), fallback to local storage
+      const credentialIdForPasskey = approvalData.credentialId || localCredentialId;
+      
+      // Try with allowCredentials first, fall back to discoverable if credential not found
       let result;
       try {
         result = await Passkey.get({
           rpId: approvalData.rpId,
           challenge: challengeHashBase64,
-          allowCredentials: localCredentialId ? [{
-            id: localCredentialId,
+          allowCredentials: credentialIdForPasskey ? [{
+            id: credentialIdForPasskey,
             type: 'public-key' as const,
           }] : undefined,
           userVerification: 'required',
@@ -377,7 +380,8 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
         authenticatorData,
         clientDataJSON,
         publicKey: publicKey,
-        credentialId: localCredentialId || result.id,
+        // Prefer API-provided credentialId (from mobile device record), fallback to result.id
+        credentialId: approvalData.credentialId || result.id,
       });
       
       // 8. Success - close modal and show toast
