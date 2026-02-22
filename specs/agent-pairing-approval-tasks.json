@@ -1,0 +1,133 @@
+{
+  "project": "agent-pairing-approval",
+  "spec": "agent-pairing-approval.md",
+  "tasks": [
+    {
+      "id": "api-code-status",
+      "name": "API: Code Status Endpoint",
+      "deps": [],
+      "prompt": "Add GET /api/pairing/code/:code/status endpoint to packages/api/src/index.ts. Returns current state of pairing code including any pending agent request. Response shape: { code, status: 'waiting'|'pending_approval'|'approved'|'expired', requestId?, agentId?, agentName?, requestedAt? }. Return 404 for invalid/expired codes.",
+      "acceptance": [
+        "Endpoint exists at GET /api/pairing/code/:code/status",
+        "Returns status='waiting' for unused valid code",
+        "Returns status='pending_approval' + agent info when agent has requested",
+        "Returns 404 for invalid or expired codes",
+        "curl test: curl -s localhost:3001/api/pairing/code/TEST/status returns valid JSON"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "api-mobile-approve",
+      "name": "API: Mobile Approval Endpoint",
+      "deps": ["api-code-status"],
+      "prompt": "Add POST /api/pairing/approve-mobile endpoint to packages/api/src/index.ts. Accepts { requestId, signature (base64 DER), authenticatorData (base64), clientDataJSON (base64) }. Verify passkey signature, mark pairing as approved, generate authSecret. Return { success: true, agentId, agentName } on success.",
+      "acceptance": [
+        "Endpoint exists at POST /api/pairing/approve-mobile",
+        "Validates passkey signature against wallet authority",
+        "Marks pairing request status as 'approved'",
+        "Generates and stores authSecret for agent retrieval",
+        "Returns 401 for invalid signature",
+        "Returns 400 for already approved or expired requests"
+      ],
+      "estimatedIterations": 10
+    },
+    {
+      "id": "mobile-pairing-service",
+      "name": "Mobile: Pairing Service Functions",
+      "deps": [],
+      "prompt": "Add functions to src/services/pairing.ts: checkCodeStatus(code: string) calls GET /api/pairing/code/:code/status; approveAgentPairing(params) calls POST /api/pairing/approve-mobile; denyAgentPairing(requestId) calls POST /api/pairing/deny. Add TypeScript types for CodeStatus and ApprovalResponse.",
+      "acceptance": [
+        "checkCodeStatus function exists and returns typed CodeStatus",
+        "approveAgentPairing function exists and sends correct payload",
+        "denyAgentPairing function exists",
+        "All functions handle errors and return typed responses",
+        "TypeScript compiles: cd ~/odyssey-mobile-v3 && npx tsc --noEmit"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "mobile-approval-modal",
+      "name": "Mobile: Agent Approval Modal",
+      "deps": ["mobile-pairing-service"],
+      "prompt": "Create src/components/AgentApprovalModal.tsx. Modal shows: agent name, warning text about permissions, Approve button (gold, primary), Deny button (red outline). Props: visible, agentName, onApprove, onDeny, loading. Style consistent with app theme (dark bg, gold accents).",
+      "acceptance": [
+        "Component renders agent name",
+        "Shows warning about what approval means",
+        "Approve button calls onApprove when pressed",
+        "Deny button calls onDeny when pressed",
+        "Shows loading spinner when loading=true",
+        "Styled with dark theme, gold accents matching app"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "mobile-polling",
+      "name": "Mobile: Polling in PairAgentScreen",
+      "deps": ["mobile-pairing-service", "mobile-approval-modal"],
+      "prompt": "Modify src/screens/agents/PairAgentScreen.tsx to poll for incoming requests after code generated. Use useEffect with setInterval (2s). When checkCodeStatus returns pending_approval, store agentName/requestId in state and show AgentApprovalModal. Stop polling on unmount or when request found.",
+      "acceptance": [
+        "Polling starts when pairingCode state is set",
+        "Polls every 2 seconds",
+        "When status is pending_approval, shows AgentApprovalModal",
+        "Polling stops on component unmount (cleanup)",
+        "Polling stops when request is found",
+        "No memory leaks from intervals"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "mobile-passkey-approval",
+      "name": "Mobile: Passkey Approval Flow",
+      "deps": ["mobile-polling"],
+      "prompt": "In PairAgentScreen.tsx, implement handleApprove function. Build challenge 'approve-agent:{requestId}:{timestamp}'. Call Passkey.get() for assertion. Extract signature, authenticatorData, clientDataJSON. Call approveAgentPairing. On success show success state. On error show error with retry option.",
+      "acceptance": [
+        "handleApprove builds correct challenge string",
+        "Calls Passkey.get() with challenge",
+        "Extracts and base64 encodes signature, authenticatorData, clientDataJSON",
+        "Calls approveAgentPairing with correct payload",
+        "Shows success state on approval",
+        "Shows error message on failure with retry option",
+        "Loading state during approval process"
+      ],
+      "estimatedIterations": 10
+    },
+    {
+      "id": "mobile-deny-flow",
+      "name": "Mobile: Deny Flow",
+      "deps": ["mobile-polling"],
+      "prompt": "In PairAgentScreen.tsx, implement handleDeny function. Call denyAgentPairing(requestId). No passkey needed. On success, show brief message and auto-generate new code. Close modal.",
+      "acceptance": [
+        "handleDeny calls denyAgentPairing",
+        "No passkey required for deny",
+        "Modal closes after deny",
+        "New pairing code generated automatically",
+        "Brief toast/message confirming denial"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "mobile-success-state",
+      "name": "Mobile: Success State",
+      "deps": ["mobile-passkey-approval"],
+      "prompt": "In PairAgentScreen.tsx, add success state after approval. Show checkmark, agent name that was paired, button to 'Pair Another Agent' (generates new code), button to go back to agents list.",
+      "acceptance": [
+        "Success state shows after approval completes",
+        "Displays paired agent name",
+        "'Pair Another Agent' button generates new code",
+        "'Done' or back button returns to agents list",
+        "Styled consistently with app theme"
+      ],
+      "estimatedIterations": 5
+    }
+  ],
+  "mergeOrder": [
+    "api-code-status",
+    "api-mobile-approve", 
+    "mobile-pairing-service",
+    "mobile-approval-modal",
+    "mobile-polling",
+    "mobile-passkey-approval",
+    "mobile-deny-flow",
+    "mobile-success-state"
+  ]
+}

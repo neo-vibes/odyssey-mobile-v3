@@ -32,6 +32,28 @@ export interface ApprovalStatus {
   walletPubkey?: string;
 }
 
+export interface CodeStatus {
+  code: string;
+  status: 'waiting' | 'pending_approval' | 'approved' | 'expired';
+  requestId?: string;
+  agentId?: string;
+  agentName?: string;
+  requestedAt?: string;
+}
+
+export interface ApproveParams {
+  requestId: string;
+  signature: string;
+  authenticatorData: string;
+  clientDataJSON: string;
+}
+
+export interface ApprovalResponse {
+  success: boolean;
+  agentId: string;
+  agentName: string;
+}
+
 // =============================================================================
 // URL Parsing
 // =============================================================================
@@ -172,6 +194,105 @@ export async function pollApprovalStatus(requestId: string): Promise<ApprovalSta
 }
 
 // =============================================================================
+// Agent Pairing Functions
+// =============================================================================
+
+/**
+ * Check the status of an agent pairing code
+ * Used to see if an agent has requested pairing with this code
+ */
+export async function checkCodeStatus(code: string): Promise<CodeStatus> {
+  const response = await fetch(`${API_URL}/api/pairing/code/${encodeURIComponent(code)}/status`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    let message = 'Failed to check code status';
+    
+    try {
+      const parsed = JSON.parse(errorBody);
+      message = parsed.message || parsed.error || message;
+    } catch {
+      if (errorBody) message = errorBody;
+    }
+    
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+  return data as CodeStatus;
+}
+
+/**
+ * Approve an agent pairing request
+ * Signs with passkey to authorize the agent
+ */
+export async function approveAgentPairing(params: ApproveParams): Promise<ApprovalResponse> {
+  const response = await fetch(`${API_URL}/api/pairing/approve-mobile`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requestId: params.requestId,
+      signature: params.signature,
+      authenticatorData: params.authenticatorData,
+      clientDataJSON: params.clientDataJSON,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    let message = 'Failed to approve agent pairing';
+    
+    try {
+      const parsed = JSON.parse(errorBody);
+      message = parsed.message || parsed.error || message;
+    } catch {
+      if (errorBody) message = errorBody;
+    }
+    
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+  return data as ApprovalResponse;
+}
+
+/**
+ * Deny an agent pairing request
+ */
+export async function denyAgentPairing(requestId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/pairing/deny`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requestId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    let message = 'Failed to deny agent pairing';
+    
+    try {
+      const parsed = JSON.parse(errorBody);
+      message = parsed.message || parsed.error || message;
+    } catch {
+      if (errorBody) message = errorBody;
+    }
+    
+    throw new Error(message);
+  }
+}
+
+// =============================================================================
 // Convenience Export
 // =============================================================================
 
@@ -180,6 +301,9 @@ export const pairing = {
   getPairingDetails,
   registerDevice,
   pollApprovalStatus,
+  checkCodeStatus,
+  approveAgentPairing,
+  denyAgentPairing,
 };
 
 export default pairing;

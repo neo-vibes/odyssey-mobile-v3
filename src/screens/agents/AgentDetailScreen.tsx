@@ -2,7 +2,9 @@ import React, { useMemo } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import type { AgentDetailScreenProps } from "../../navigation/types";
 import { useAgentsStore } from "../../stores/useAgentsStore";
-import { useSessionsStore } from "../../stores/useSessionsStore";
+import { useSessionsStore, Session } from "../../stores/useSessionsStore";
+
+const EMPTY_SESSIONS: Session[] = [];
 
 export function AgentDetailScreen({
   route,
@@ -16,7 +18,7 @@ export function AgentDetailScreen({
   const removeAgent = useAgentsStore((state) => state.removeAgent);
 
   const sessions = useSessionsStore((state) =>
-    state.getSessionsForAgent(agentId)
+    state.sessionsByAgent[agentId] ?? EMPTY_SESSIONS
   );
 
   const sessionCounts = useMemo(() => {

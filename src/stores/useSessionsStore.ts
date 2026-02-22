@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 
+// Stable empty array to avoid infinite re-renders
+const EMPTY_SESSIONS: Session[] = [];
+
 export interface Session {
   id: string;
   agentId: string;
@@ -90,11 +93,11 @@ export const useSessionsStore = create<SessionsState & SessionsActions>(
       }),
 
     getSessionsForAgent: (agentId) => {
-      return get().sessionsByAgent[agentId] || [];
+      return get().sessionsByAgent[agentId] ?? EMPTY_SESSIONS;
     },
 
     getActiveSessionForAgent: (agentId) => {
-      const sessions = get().sessionsByAgent[agentId] || [];
+      const sessions = get().sessionsByAgent[agentId] ?? EMPTY_SESSIONS;
       return sessions.find((s) => s.status === 'active');
     },
 

@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { Passkey } from "react-native-passkey";
 import type { PairAgentScreenProps } from "../../navigation/types";
 import { generatePairingCode } from "../../services/api";
+import { checkCodeStatus, approveAgentPairing, denyAgentPairing } from "../../services/pairing";
 import { useWalletStore } from "../../stores/useWalletStore";
+import { AgentApprovalModal } from "../../components/AgentApprovalModal";
 
 interface PairingCodeState {
   code: string;
@@ -17,6 +20,9 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [copied, setCopied] = useState<"code" | "instructions" | null>(null);
+  const [incomingRequest, setIncomingRequest] = useState<{requestId: string, agentName: string} | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [approvalSuccess, setApprovalSuccess] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch pairing code on mount
@@ -34,6 +40,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
 
     if (response.ok && response.data) {
       const expiresAt = new Date(response.data.expiresAt);
+      console.log('✅ Got pairing code:', response.data.code);
       setPairingCode({
         code: response.data.code,
         expiresAt,
@@ -42,6 +49,7 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
       const remaining = Math.max(0, expiresAt.getTime() - Date.now());
       setTimeRemaining(remaining);
     } else {
+      console.log('❌ Failed to generate code:', response.error?.message);
       setError(response.error?.message || "Failed to generate pairing code");
     }
 
@@ -75,6 +83,67 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
     };
   }, [pairingCode]);
 
+  // Poll for incoming agent pairing requests
+  useEffect(() => {
+    if (!pairingCode) return;
+    
+    // DEBUG: Show alert when polling starts
+    Alert.alert('Polling Started', `Code: ${pairingCode.code}\nWill check every 2s for agent requests`);
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await checkCodeStatus(pairingCode.code);
+        console.log('📊 Poll result:', status.status);
+        console.log('📊 Code status:', status.status);
+        if (status.status === 'pending_approval' && status.requestId && status.agentName) {
+          Alert.alert('Agent Found!', `${status.agentName} wants to pair`);
+          setIncomingRequest({ requestId: status.requestId, agentName: status.agentName });
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.warn('Poll error:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [pairingCode]);
+
+  // Handle passkey approval
+  const handleApprove = async () => {
+    if (!incomingRequest) return;
+    
+    setApproving(true);
+    try {
+      const timestamp = Date.now();
+      const challenge = `approve-agent:${incomingRequest.requestId}:${timestamp}`;
+      const challengeBase64 = btoa(challenge);
+      
+      // Get passkey assertion
+      const result = await Passkey.get({
+        rpId: 'app.getodyssey.xyz',
+        challenge: challengeBase64,
+        userVerification: 'required',
+      });
+      
+      // Call API to approve
+      await approveAgentPairing({
+        requestId: incomingRequest.requestId,
+        signature: result.response.signature,
+        authenticatorData: result.response.authenticatorData,
+        clientDataJSON: result.response.clientDataJSON,
+      });
+      
+      // Success!
+      setApprovalSuccess(incomingRequest.agentName);
+      setIncomingRequest(null);
+    } catch (err) {
+      console.error('Approval failed:', err);
+      setError((err as Error).message || 'Approval failed');
+    } finally {
+      setApproving(false);
+    }
+  };
+
   // Format time remaining as MM:SS
   const formatTimeRemaining = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -98,6 +167,21 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
     await Clipboard.setStringAsync(instructions);
     setCopied("instructions");
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  // Deny agent pairing request
+  const handleDeny = async () => {
+    if (!incomingRequest) return;
+    
+    try {
+      await denyAgentPairing(incomingRequest.requestId);
+      // Close modal and generate new code
+      setIncomingRequest(null);
+      fetchPairingCode(); // Re-generate code for another agent
+    } catch (err) {
+      console.error('Deny failed:', err);
+      setError((err as Error).message || 'Failed to deny');
+    }
   };
 
   // Check if code is expired
@@ -141,6 +225,36 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
           className="bg-gold px-6 py-3 rounded-xl active:opacity-80"
         >
           <Text className="text-background-base font-semibold">Generate New Code</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Success state - agent paired
+  if (approvalSuccess) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0D0D0F', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>✅</Text>
+        <Text style={{ color: 'white', fontSize: 24, fontWeight: '600', marginBottom: 8 }}>
+          Agent Paired!
+        </Text>
+        <Text style={{ color: '#FFB84D', fontSize: 18, marginBottom: 24 }}>
+          {approvalSuccess}
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 32 }}>
+          This agent can now request spending sessions from your wallet.
+        </Text>
+        <Pressable
+          style={{ backgroundColor: '#FFB84D', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, marginBottom: 12 }}
+          onPress={() => { setApprovalSuccess(null); fetchPairingCode(); }}
+        >
+          <Text style={{ color: '#0D0D0F', fontWeight: '600' }}>Pair Another Agent</Text>
+        </Pressable>
+        <Pressable
+          style={{ paddingHorizontal: 24, paddingVertical: 14 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Done</Text>
         </Pressable>
       </View>
     );
@@ -220,6 +334,15 @@ export function PairAgentScreen({ navigation }: PairAgentScreenProps) {
       >
         <Text className="text-text-muted font-medium">Cancel</Text>
       </Pressable>
+
+      {/* Agent approval modal */}
+      <AgentApprovalModal
+        visible={incomingRequest !== null}
+        agentName={incomingRequest?.agentName || ''}
+        onApprove={handleApprove}
+        onDeny={handleDeny}
+        loading={approving}
+      />
     </View>
   );
 }

@@ -4,6 +4,8 @@ import type { SessionsListScreenProps } from "../../navigation/types";
 import { useSessionsStore, Session } from "../../stores/useSessionsStore";
 import { useAgentsStore } from "../../stores/useAgentsStore";
 
+const EMPTY_SESSIONS: Session[] = [];
+
 export function SessionsListScreen({
   route,
   navigation,
@@ -14,7 +16,7 @@ export function SessionsListScreen({
     state.agents.find((a) => a.id === agentId)
   );
   const sessions = useSessionsStore((state) =>
-    state.getSessionsForAgent(agentId)
+    state.sessionsByAgent[agentId] ?? EMPTY_SESSIONS
   );
 
   const { activeSession, pastSessions } = useMemo(() => {
