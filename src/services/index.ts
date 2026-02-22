@@ -1,6 +1,7 @@
 // Services exports
 export { api, default as apiClient } from './api';
 export { pairing, default as pairingClient } from './pairing';
+export { sessions, default as sessionsClient } from './sessions';
 export {
   parseTokenFromUrl,
   getPairingDetails,
@@ -62,3 +63,21 @@ export type {
   RegisterDeviceResponse,
   ApprovalStatus,
 } from './pairing';
+
+// Sessions service functions
+export {
+  getPendingSessions,
+  getSessionApprovalData,
+  denySession,
+  approveSession,
+} from './sessions';
+
+// Sessions types
+export type {
+  SessionLimit,
+  PendingSession,
+  SessionApprovalData,
+  ApproveSessionParams,
+  ApproveSessionResponse,
+  DenySessionResponse,
+} from './sessions';

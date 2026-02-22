@@ -1,16 +1,27 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
   Pressable,
   ScrollView,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Passkey } from "react-native-passkey";
+import * as Crypto from "expo-crypto";
 import { useAgentsStore, useSessionsStore } from "../../stores";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { getSessionRequests } from "../../services/api";
 import { getPairedAgents } from "../../services/agent-storage";
+import {
+  getPendingSessions,
+  getSessionApprovalData,
+  approveSession,
+  PendingSession,
+} from "../../services/sessions";
+import { buildSessionChallenge } from "../../utils/sessionChallenge";
+import { SessionApprovalModal } from "../../components/SessionApprovalModal";
 import type { AgentsScreenProps } from "../../navigation/types";
 import type { PairingRequest, Agent } from "../../stores";
 import type { SessionRequest } from "../../stores";
@@ -213,7 +224,12 @@ function formatDuration(seconds: number): string {
 // Main Screen Component
 // ============================================================================
 export function AgentsScreen({ navigation }: AgentsScreenProps) {
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Session approval modal state
+  const [pendingSession, setPendingSession] = useState<PendingSession | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
   // Wallet store
   const walletAddress = useWalletStore((s) => s.address);
@@ -271,6 +287,98 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     [removeSessionRequest]
   );
 
+  // Session approval modal handlers
+  const handleModalApprove = useCallback(async () => {
+    if (!pendingSession) return;
+    
+    setModalLoading(true);
+    try {
+      // 1. Get approval data (includes currentSlot, expiresAtSlot, credentialId)
+      const approvalData = await getSessionApprovalData(pendingSession.requestId);
+      
+      // 2. Build 89-byte challenge
+      const challengeData = buildSessionChallenge(approvalData);
+      
+      // 3. Hash challenge with SHA-256 for WebAuthn
+      // Convert Uint8Array to string for expo-crypto
+      const challengeString = String.fromCharCode(...challengeData);
+      const challengeHashBase64 = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        challengeString,
+        { encoding: Crypto.CryptoEncoding.BASE64 }
+      );
+      
+      // 4. Call Passkey.get with hashed challenge
+      const result = await Passkey.get({
+        rpId: approvalData.rpId,
+        challenge: challengeHashBase64,
+        allowCredentials: approvalData.credentialId ? [{
+          id: approvalData.credentialId,
+          type: 'public-key' as const,
+        }] : undefined,
+        userVerification: 'required',
+      });
+      
+      // 5. Extract WebAuthn response fields (already base64 from react-native-passkey)
+      const signature = result.response.signature;
+      const authenticatorData = result.response.authenticatorData;
+      const clientDataJSON = result.response.clientDataJSON;
+      
+      // 6. Call approve API with WebAuthn signature
+      await approveSession({
+        requestId: pendingSession.requestId,
+        walletPubkey: approvalData.walletPubkey,
+        sessionPubkey: approvalData.sessionPubkey,
+        expiresAtSlot: approvalData.expiresAtSlot,
+        limits: pendingSession.limits,
+        signature,
+        authenticatorData,
+        clientDataJSON,
+      });
+      
+      // 7. Success - close modal and show toast
+      setModalVisible(false);
+      setPendingSession(null);
+      Alert.alert('Session Approved', 'Agent can now execute transactions');
+      
+    } catch (error: any) {
+      console.error("Failed to approve session:", error);
+      Alert.alert(
+        'Error',
+        error?.message || 'Failed to approve session',
+        [
+          { text: 'Retry', onPress: () => handleModalApprove() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    } finally {
+      setModalLoading(false);
+    }
+  }, [pendingSession]);
+
+  const handleModalDeny = useCallback(async () => {
+    if (!pendingSession) return;
+    
+    setModalLoading(true);
+    try {
+      // Import and call denySession
+      const { denySession } = await import("../../services/sessions");
+      await denySession(pendingSession.requestId);
+      
+      // Close modal and clear pending session
+      setModalVisible(false);
+      setPendingSession(null);
+      
+      // Show success toast
+      Alert.alert('Denied', 'Session denied');
+    } catch (error: any) {
+      console.error("Failed to deny session:", error);
+      Alert.alert('Error', 'Failed to deny session: ' + (error?.message || 'Unknown error'));
+    } finally {
+      setModalLoading(false);
+    }
+  }, [pendingSession]);
+
   const fetchAgents = useCallback(async () => {
     // Load paired agents from local storage (no wallet required)
     const pairedAgents = await getPairedAgents();
@@ -291,9 +399,8 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
           agentId: r.agentId || r.sessionPubkey,
           agentName: r.agentName,
           requestedAt: new Date(r.createdAt),
-          expiresAt: new Date(Date.now() + (r.durationSeconds || 3600) * 1000),
           durationSeconds: r.durationSeconds,
-          maxAmountSol: r.limits?.[0]?.amount || r.maxAmount || 0,
+          limitSol: r.limits?.[0]?.amount || r.maxAmount || 0,
         }));
         setPendingSessionRequests(mappedRequests);
       }
@@ -305,6 +412,40 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     useCallback(() => {
       fetchAgents();
     }, [fetchAgents])
+  );
+
+  // Poll for pending session requests (every 3 seconds when focused)
+  useFocusEffect(
+    useCallback(() => {
+      let interval: ReturnType<typeof setInterval> | null = null;
+
+      const poll = async () => {
+        // Don't poll if modal is visible or no wallet
+        if (modalVisible || !walletAddress) return;
+        
+        try {
+          const sessions = await getPendingSessions(walletAddress);
+          if (sessions.length > 0) {
+            setPendingSession(sessions[0]);
+            setModalVisible(true);
+          }
+        } catch (error) {
+          // Silently fail - will retry on next poll
+          console.log("Failed to poll pending sessions:", error);
+        }
+      };
+
+      // Initial poll
+      poll();
+      
+      // Set up interval polling
+      interval = setInterval(poll, 3000);
+
+      // Cleanup on blur
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }, [walletAddress, modalVisible])
   );
 
   const handleRefresh = useCallback(async () => {
@@ -329,6 +470,15 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
     return (
       <View className="flex-1 bg-background-base">
         <EmptyState onPairAgent={navigateToPairAgent} />
+        
+        {/* Session Approval Modal - shown even on empty state */}
+        <SessionApprovalModal
+          visible={modalVisible}
+          session={pendingSession}
+          onApprove={handleModalApprove}
+          onDeny={handleModalDeny}
+          loading={modalLoading}
+        />
       </View>
     );
   }
@@ -419,6 +569,15 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Session Approval Modal */}
+      <SessionApprovalModal
+        visible={modalVisible}
+        session={pendingSession}
+        onApprove={handleModalApprove}
+        onDeny={handleModalDeny}
+        loading={modalLoading}
+      />
     </View>
   );
 }

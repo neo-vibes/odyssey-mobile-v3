@@ -1,0 +1,167 @@
+{
+  "project": "session-approval-mobile",
+  "spec": "session-approval-mobile.md",
+  "tasks": [
+    {
+      "id": "api-pending-sessions",
+      "name": "API: Pending Sessions Endpoint",
+      "deps": [],
+      "prompt": "Add GET /api/sessions/pending endpoint to packages/api/src/index.ts. Query param: walletPubkey (required). Returns array of pending session requests for that wallet. Each item includes: requestId, agentId, agentName, sessionPubkey, durationSeconds, mint, maxAmount (in base units), limits array, status, createdAt. Only return sessions with status='pending'. Return empty array if none.",
+      "acceptance": [
+        "Endpoint exists at GET /api/sessions/pending?walletPubkey=X",
+        "Returns array of pending session requests",
+        "Each session includes: requestId, agentId, agentName, sessionPubkey, durationSeconds, mint, maxAmount, limits, status, createdAt",
+        "Only returns status='pending' sessions",
+        "Returns empty array [] if no pending sessions",
+        "Returns 400 if walletPubkey missing",
+        "curl test: curl -s 'localhost:3001/api/sessions/pending?walletPubkey=TEST' returns valid JSON array"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "api-session-approval-data",
+      "name": "API: Session Approval Data Endpoint",
+      "deps": ["api-pending-sessions"],
+      "prompt": "Add GET /api/sessions/:requestId/approval-data endpoint to packages/api/src/index.ts. Returns all data needed for mobile to build the challenge and call passkey. Includes: sessionPubkey, walletPubkey, durationSeconds, mint, maxAmount, credentialId, currentSlot (from RPC), expiresAtSlot (calculated: currentSlot + durationSeconds * 2.5), rpId (from config or 'app.getodyssey.xyz'). This endpoint calls Solana RPC to get current slot.",
+      "acceptance": [
+        "Endpoint exists at GET /api/sessions/:requestId/approval-data",
+        "Returns currentSlot from Solana RPC connection",
+        "Returns expiresAtSlot calculated as currentSlot + Math.floor(durationSeconds * 2.5)",
+        "Returns all session fields: sessionPubkey, walletPubkey, mint, maxAmount, credentialId",
+        "Returns rpId for passkey",
+        "Returns 404 if requestId not found",
+        "Returns 400 if session not pending"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "api-session-deny",
+      "name": "API: Session Deny Endpoint",
+      "deps": [],
+      "prompt": "Add POST /api/sessions/deny endpoint to packages/api/src/index.ts. Body: { requestId }. Sets session status to 'denied'. No auth required (user physically has device). Returns { success: true, requestId }. Return 404 if not found, 400 if already approved/denied.",
+      "acceptance": [
+        "Endpoint exists at POST /api/sessions/deny",
+        "Accepts { requestId } in body",
+        "Sets sessionRequest.status = 'denied'",
+        "Returns { success: true, requestId }",
+        "Returns 404 if requestId not found",
+        "Returns 400 if session not pending",
+        "No authentication required"
+      ],
+      "estimatedIterations": 5
+    },
+    {
+      "id": "mobile-sessions-service",
+      "name": "Mobile: Sessions Service",
+      "deps": [],
+      "prompt": "Create src/services/sessions.ts with functions: getPendingSessions(walletPubkey: string) calls GET /api/sessions/pending; getSessionApprovalData(requestId: string) calls GET /api/sessions/:requestId/approval-data; denySession(requestId: string) calls POST /api/sessions/deny; approveSession(params) calls POST /api/v2/session/create. Add TypeScript types: PendingSession, SessionApprovalData, ApproveSessionParams, ApproveSessionResponse.",
+      "acceptance": [
+        "File exists at src/services/sessions.ts",
+        "getPendingSessions function returns typed PendingSession[]",
+        "getSessionApprovalData function returns typed SessionApprovalData",
+        "denySession function returns { success: boolean }",
+        "approveSession function sends WebAuthn response to /api/v2/session/create",
+        "All types exported and well-defined",
+        "TypeScript compiles: cd ~/odyssey-mobile-v3 && npx tsc --noEmit"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-session-modal",
+      "name": "Mobile: Session Approval Modal",
+      "deps": ["mobile-sessions-service"],
+      "prompt": "Create src/components/SessionApprovalModal.tsx. Modal shows: agent name, spending limit (e.g. '0.05 SOL'), duration (e.g. '10 minutes'), warning about autonomous spending. Props: visible, session (PendingSession), onApprove, onDeny, loading. Approve button gold/primary, Deny button red outline. Format amounts nicely (lamports → SOL with symbol).",
+      "acceptance": [
+        "Component renders agent name",
+        "Shows spending limit formatted (e.g. '0.05 SOL' not '50000000 lamports')",
+        "Shows duration formatted (e.g. '10 minutes' not '600 seconds')",
+        "Shows warning about autonomous spending",
+        "Approve button calls onApprove",
+        "Deny button calls onDeny",
+        "Shows loading spinner when loading=true",
+        "Styled dark theme, gold accents"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-polling-sessions",
+      "name": "Mobile: Polling on Agents Screen",
+      "deps": ["mobile-sessions-service", "mobile-session-modal"],
+      "prompt": "Modify src/screens/agents/AgentsScreen.tsx to poll for pending sessions. Use useEffect with setInterval (3s) when screen is focused. Call getPendingSessions with user's walletPubkey. When pending session found, store in state and show SessionApprovalModal. Stop polling on blur or when modal open. Use useFocusEffect from @react-navigation/native.",
+      "acceptance": [
+        "Polling starts when AgentsScreen is focused",
+        "Polls every 3 seconds",
+        "Uses useFocusEffect for focus/blur handling",
+        "When pending session found, shows SessionApprovalModal",
+        "Polling pauses when modal is visible",
+        "Polling stops on screen blur",
+        "No memory leaks from intervals",
+        "Gets walletPubkey from wallet store"
+      ],
+      "estimatedIterations": 8
+    },
+    {
+      "id": "mobile-challenge-builder",
+      "name": "Mobile: Challenge Builder Utility",
+      "deps": ["mobile-sessions-service"],
+      "prompt": "Create src/utils/sessionChallenge.ts with buildSessionChallenge(data: SessionApprovalData): Uint8Array function. Builds 89-byte challenge: discriminator(1) + sessionPubkey(32) + expiresAtSlot(8 LE) + mint(32) + maxAmount(8 LE) + currentSlot(8 LE). Use @solana/web3.js PublicKey for base58 decode. Return raw bytes (will be hashed by caller). Handle 'native' mint as 32 zero bytes.",
+      "acceptance": [
+        "Function exists at src/utils/sessionChallenge.ts",
+        "Returns Uint8Array of exactly 89 bytes",
+        "First byte is 5 (CreateSession discriminator)",
+        "sessionPubkey is 32 bytes from base58",
+        "expiresAtSlot is 8 bytes little-endian",
+        "mint is 32 bytes (zeros for native, base58 decode for SPL)",
+        "maxAmount is 8 bytes little-endian",
+        "currentSlot is 8 bytes little-endian",
+        "TypeScript compiles without errors"
+      ],
+      "estimatedIterations": 6
+    },
+    {
+      "id": "mobile-passkey-session",
+      "name": "Mobile: Passkey Session Approval",
+      "deps": ["mobile-polling-sessions", "mobile-challenge-builder"],
+      "prompt": "In AgentsScreen.tsx, implement handleApproveSession. Call getSessionApprovalData(requestId). Build challenge using buildSessionChallenge, hash with crypto.subtle.digest('SHA-256'). Call Passkey.get() with challenge hash and credentialId (allowCredentials). Extract signature, authenticatorData, clientDataJSON as base64. Call approveSession with all params. On success close modal and show toast. On error show error with retry.",
+      "acceptance": [
+        "handleApproveSession fetches approval data",
+        "Builds 89-byte challenge using buildSessionChallenge",
+        "Hashes challenge with SHA-256",
+        "Calls Passkey.get with hashed challenge",
+        "Uses allowCredentials with credentialId",
+        "Extracts and base64 encodes WebAuthn response fields",
+        "Calls approveSession with correct payload",
+        "Shows success toast on completion",
+        "Shows error with retry on failure",
+        "Loading state during process"
+      ],
+      "estimatedIterations": 12
+    },
+    {
+      "id": "mobile-deny-session",
+      "name": "Mobile: Deny Session Flow",
+      "deps": ["mobile-polling-sessions"],
+      "prompt": "In AgentsScreen.tsx, implement handleDenySession. Call denySession(requestId). No passkey needed. On success close modal, resume polling, show brief toast 'Session denied'. On error show error message.",
+      "acceptance": [
+        "handleDenySession calls denySession",
+        "No passkey required",
+        "Modal closes after deny",
+        "Polling resumes",
+        "Shows toast 'Session denied'",
+        "Handles errors gracefully"
+      ],
+      "estimatedIterations": 4
+    }
+  ],
+  "mergeOrder": [
+    "api-pending-sessions",
+    "api-session-approval-data",
+    "api-session-deny",
+    "mobile-sessions-service",
+    "mobile-session-modal",
+    "mobile-challenge-builder",
+    "mobile-polling-sessions",
+    "mobile-passkey-session",
+    "mobile-deny-session"
+  ]
+}
