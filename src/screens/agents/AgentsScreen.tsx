@@ -292,10 +292,13 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
   const handleModalApprove = useCallback(async () => {
     if (!pendingSession) return;
     
+    console.log('DEBUG: handleModalApprove started, requestId:', pendingSession.requestId);
+    
     setModalLoading(true);
     try {
       // 1. Get local credential ID from storage
       const localCredentialId = await getCredentialId();
+      console.log('DEBUG: localCredentialId:', localCredentialId?.slice(0, 20) || 'null');
       
       // 2. Get approval data (includes currentSlot, expiresAtSlot)
       const approvalData = await getSessionApprovalData(pendingSession.requestId);
@@ -306,14 +309,40 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
       // 4. Hash challenge with SHA-256 for WebAuthn
       const hashArrayBuffer = sha256.arrayBuffer(challengeData);
       const hashBytes = new Uint8Array(hashArrayBuffer);
-      const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes));
+      // Convert to base64url (Android Credential Manager requires this format)
+      const challengeHashBase64 = btoa(String.fromCharCode(...hashBytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
       
       // 5. Call Passkey.get with hashed challenge
-      // Prefer API-provided credentialId (from mobile device), fallback to local storage
-      const credentialIdForPasskey = approvalData.credentialId || localCredentialId;
+      // Prefer LOCAL credentialId (saved after passkey creation), fallback to server
+      // Also convert credentialId to base64url if needed
+      let credentialIdForPasskey = localCredentialId || approvalData.credentialId;
+      if (credentialIdForPasskey) {
+        credentialIdForPasskey = credentialIdForPasskey
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, '');
+      }
       
       // Try with allowCredentials first, fall back to discoverable if credential not found
       let result;
+      
+      // DEBUG: Log what we're sending
+      // @ts-ignore - accessing native module directly for debugging
+      const bundleId = require('react-native').NativeModules?.PlatformConstants?.getConstants?.()?.Package 
+        || require('react-native').Platform.constants?.Package
+        || 'unknown';
+      console.log('DEBUG App package:', bundleId);
+      console.log('DEBUG Passkey.get request:', JSON.stringify({
+        rpId: approvalData.rpId,
+        challenge: challengeHashBase64.slice(0, 20) + '...',
+        localCredentialId: localCredentialId?.slice(0, 20) + '...',
+        apiCredentialId: approvalData.credentialId?.slice(0, 20) + '...',
+        usingCredentialId: credentialIdForPasskey?.slice(0, 20) + '...',
+      }));
+      
       try {
         result = await Passkey.get({
           rpId: approvalData.rpId,
@@ -326,10 +355,12 @@ export function AgentsScreen({ navigation }: AgentsScreenProps) {
         });
       } catch (passkeyError: any) {
         // If credential not found, retry with discoverable flow (no allowCredentials)
+        console.log('DEBUG Passkey error:', passkeyError.message, passkeyError.code);
         if (passkeyError.message?.includes('No viable credential') || 
             passkeyError.message?.includes('NotAllowed') ||
             passkeyError.code === 'ERR_NO_CREDENTIAL') {
           console.log('Credential not found on device, trying discoverable flow');
+          console.log('DEBUG discoverable request rpId:', approvalData.rpId);
           result = await Passkey.get({
             rpId: approvalData.rpId,
             challenge: challengeHashBase64,

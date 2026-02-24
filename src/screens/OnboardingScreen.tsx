@@ -11,6 +11,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Passkey } from "react-native-passkey";
+import { sha256 } from "js-sha256";
 import { useWalletStore } from "../stores/useWalletStore";
 import { useAgentsStore, type Agent } from "../stores/useAgentsStore";
 import {
@@ -417,30 +418,23 @@ async function createPasskey(walletPubkey: string): Promise<PasskeyCredential> {
       console.log("🔐 Creating real passkey...");
       const result = await Passkey.create(request);
       
-      // Save credential ID locally for future authentication
-      if (result.id) {
-        try {
-          await saveCredentialId(result.id);
-          console.log("💾 Credential ID saved locally");
-        } catch (saveError) {
-          console.warn("⚠️ Failed to save credential ID locally:", saveError);
-          // Non-blocking - wallet creation continues even if save fails
-        }
-      }
-      
       const { publicKey, rpIdHash, credentialId } = parseAttestationObject(
         result.response.attestationObject
       );
       
-      // Save publicKey and rpIdHash for session approvals
+      // Save credential data locally for session approvals
+      // IMPORTANT: Use parsed credentialId (base64 standard), NOT result.id (base64url)
+      // This ensures local storage matches what API stores
+      const credentialIdB64 = uint8ArrayToBase64(credentialId);
       const publicKeyB64 = uint8ArrayToBase64(publicKey);
       const rpIdHashB64 = uint8ArrayToBase64(rpIdHash);
       try {
+        await saveCredentialId(credentialIdB64);
         await savePublicKey(publicKeyB64);
         await saveRpIdHash(rpIdHashB64);
-        console.log("💾 PublicKey and rpIdHash saved locally");
+        console.log("💾 Credential data saved locally (credentialId, publicKey, rpIdHash)");
       } catch (saveError) {
-        console.warn("⚠️ Failed to save publicKey/rpIdHash:", saveError);
+        console.warn("⚠️ Failed to save credential data:", saveError);
       }
       
       console.log("✅ Real passkey created");
